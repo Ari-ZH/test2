@@ -48,7 +48,7 @@ function fetchGoldSalePrice() {
 function updateOriginSalePrice() {
   fetchGoldSalePrice().then((salePrice) => {
     const originSalePrice = salePrice;
-    const curPrice = Math.ceil((originSalePrice + 10) / 5) * 5;
+    const curPrice = Math.ceil(originSalePrice / 5) * 5 + 10;
     if (beforeSalePrice === 0) {
       beforeSalePrice = curPrice;
       setValueById(
