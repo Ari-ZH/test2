@@ -9,6 +9,9 @@ const server = http.createServer((req, res) => {
   if (req.url.startsWith('/static')) {
     return handleStaticFileRequest(req, res);
   }
+  if (req.url.startsWith('/iframe')) {
+    return handleIframeRequest(req, res);
+  }
   // Handle other requests
   res.writeHead(200, { 'Content-Type': 'text/html' });
   res.write(`
@@ -21,15 +24,15 @@ const server = http.createServer((req, res) => {
       <script src="static/client.js" defer></script>
       </head>
     <body>
-      <h1>Welcome to the Server</h1>
+      <div id="app">
+        <div id="currentSalePrice"></div>
+        <div id="originSalePrice"></div>
+        <div id="beforeSalePrice"></div>
+        <div id="changeTime"></div>
+      </div>
     </body>
     </html>
   `);
-  if (req.url.includes('ypj')) {
-    res.write(
-      '<iframe src="http://ypjgold.cn/show" width="200px" height="500px"></iframe>'
-    );
-  }
   res.end();
 });
 
@@ -91,6 +94,21 @@ function handleStaticFileRequest(req, res) {
       res.end(data);
     }
   });
+}
+
+function handleIframeRequest(req, res) {
+  return fetch('http://ypjgold.cn/show')
+    .then((response) => response.text())
+    .then((html) => {
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.write(html);
+      res.end();
+    })
+    .catch((err) => {
+      console.error('Error fetching iframe content:', err);
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end('Error fetching iframe content');
+    });
 }
 
 server.listen(6173, () => {

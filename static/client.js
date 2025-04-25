@@ -5,7 +5,17 @@ function setValueById(id, value) {
     element.id = id;
     document.body.appendChild(element);
   }
-  element.textContent = value;
+  element.innerHTML = value;
+}
+function setAppChildValueById(value, childId) {
+  let element = document.getElementById('app');
+  let childElement = element.querySelector(`#${childId}`);
+  if (!childElement) {
+    childElement = document.createElement('div');
+    childElement.id = childId;
+    element.appendChild(childElement);
+  }
+  childElement.innerHTML = value;
 }
 
 let timer = null;
@@ -45,29 +55,34 @@ function fetchGoldSalePrice() {
     });
 }
 
-function updateOriginSalePrice() {
+function updateOriginSalePrice(
+  updateBeforeSalePrice = true,
+  showOriginValue = true
+) {
   fetchGoldSalePrice().then((salePrice) => {
     const originSalePrice = salePrice;
     const curPrice = Math.ceil(originSalePrice / 5) * 5 + 10;
     if (beforeSalePrice === 0) {
       beforeSalePrice = curPrice;
-      setValueById(
-        'before salePrice',
-        `Before Gold Sale Price: ${beforeSalePrice}`
+      setAppChildValueById(
+        `Before Gold Sale Price: ${beforeSalePrice}`,
+        'beforeSalePrice'
       );
     }
     // 发生变价, 替换当前展示价格到上次价格
     if (curPrice !== currentSalePrice && beforeSalePrice !== currentSalePrice) {
       beforeSalePrice = currentSalePrice;
       currentSalePrice = curPrice;
-      setValueById(
-        'current salePrice',
-        `Current Gold Sale Price: ${currentSalePrice}`
+      setAppChildValueById(
+        `Current Gold Sale Price: ${currentSalePrice}`,
+        'currentSalePrice'
       );
-      setValueById(
-        'before salePrice',
-        `Before Gold Sale Price: ${beforeSalePrice}`
-      );
+      if (updateBeforeSalePrice) {
+        setAppChildValueById(
+          `Before Gold Sale Price: ${beforeSalePrice}`,
+          'beforeSalePrice'
+        );
+      }
       // 设置变更价格时间
       const changeTime = new Date();
       const formattedTime = `${changeTime.getFullYear()}-${String(
@@ -78,34 +93,42 @@ function updateOriginSalePrice() {
       )} ${String(changeTime.getHours()).padStart(2, '0')}:${String(
         changeTime.getMinutes()
       ).padStart(2, '0')}`;
-      setValueById('change time', `Change Time: ${formattedTime}`);
+      setAppChildValueById(`Change Time: ${formattedTime}`, 'changeTime');
     }
     // 更新当前展示价格
     // 设置展示
-    setValueById(
-      'origin salePrice',
-      `Origin Gold Sale Price: ${originSalePrice}`
-    );
+    if (showOriginValue) {
+      setAppChildValueById(
+        `Origin Gold Sale Price: ${originSalePrice}`,
+        'originSalePrice'
+      );
+    }
   });
 }
 
 document.addEventListener('DOMContentLoaded', function () {
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.has('ypj')) {
-    const iframe = document.createElement('iframe');
-    iframe.src = 'http://ypjgold.cn/show'; // Replace with the desired iframe source URL
-    iframe.style.width = '300px';
-    iframe.style.height = '500px';
-    document.body.appendChild(iframe);
+    // const iframe = document.createElement('iframe');
+    // iframe.src = '/iframe'; // Replace with the desired iframe source URL
+    // iframe.style.width = '300px';
+    // iframe.style.height = '500px';
+    // document.body.appendChild(iframe);
+    setValueById(
+      'data source',
+      `Data Source: <a href="http://ypjgold.cn/show">http://ypjgold.cn/show</a>`
+    );
   }
+
+  const showOriginValue = urlParams.has('showOriginValue');
 
   function scheduleNextFetch() {
     const delay = Math.random() * (8000 - 2000) + 2000; // Random delay between 2s and 8s
     timer = setTimeout(() => {
-      updateOriginSalePrice();
+      updateOriginSalePrice(true, showOriginValue);
       scheduleNextFetch(); // Schedule the next fetch
     }, delay);
   }
-  updateOriginSalePrice();
+  updateOriginSalePrice(false, showOriginValue);
   scheduleNextFetch(); // Start the first fetch
 });
