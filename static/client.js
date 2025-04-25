@@ -69,20 +69,22 @@ function updateOriginSalePrice(
         'beforeSalePrice'
       );
     }
-    // 发生变价, 替换当前展示价格到上次价格
-    if (curPrice !== currentSalePrice && beforeSalePrice !== currentSalePrice) {
-      beforeSalePrice = currentSalePrice;
-      currentSalePrice = curPrice;
-      setAppChildValueById(
-        `Current Gold Sale Price: ${currentSalePrice}`,
-        'currentSalePrice'
-      );
+    // 更新当前价格
+    if (curPrice !== currentSalePrice) {
       if (updateBeforeSalePrice) {
+        // 发生变价, 替换当前展示价格到上次价格
+        beforeSalePrice = currentSalePrice;
         setAppChildValueById(
           `Before Gold Sale Price: ${beforeSalePrice}`,
           'beforeSalePrice'
         );
       }
+      // 发生变价, 替换当前展示价格
+      currentSalePrice = curPrice;
+      setAppChildValueById(
+        `Current Gold Sale Price: ${currentSalePrice}`,
+        'currentSalePrice'
+      );
       // 设置变更价格时间
       const changeTime = new Date();
       const formattedTime = `${changeTime.getFullYear()}-${String(
@@ -95,7 +97,6 @@ function updateOriginSalePrice(
       ).padStart(2, '0')}`;
       setAppChildValueById(`Change Time: ${formattedTime}`, 'changeTime');
     }
-    // 更新当前展示价格
     // 设置展示
     if (showOriginValue) {
       setAppChildValueById(
