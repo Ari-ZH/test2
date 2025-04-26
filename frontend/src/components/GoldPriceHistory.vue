@@ -11,7 +11,7 @@ async function fetchPriceHistory() {
   error.value = null;
   
   try {
-    const response = await fetch(`//localhost:3000/api/price-history?time=${Date.now()}`);
+    const response = await fetch(`/api/price-history?time=${Date.now()}`);
     
     if (!response.ok) {
       throw new Error(`API请求失败: ${response.status}`);
