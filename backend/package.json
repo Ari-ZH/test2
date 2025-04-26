@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "build": "ncc build index.js -o ../serverOutput"
+    "build": "ncc build index.js -o ../serverOutput",
+    "build:linux": "ncc build index.js -e sqlite3 -o ../serverOutputLinux"
   },
   "dependencies": {
     "express": "^5.1.0",
