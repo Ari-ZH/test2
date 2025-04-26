@@ -49,7 +49,7 @@ function startRandomUpdates() {
 function updateData() {
   error.value = null;
   fetch(
-    `//localhost:3000/api/prices?time=${Date.now()}&${location.search.slice(1)}`
+    `/api/prices?time=${Date.now()}&${location.search.slice(1)}`
   )
     .then((response) => {
       if (!response.ok) {
@@ -79,7 +79,7 @@ function updateData() {
 function fetchConfig() {
   showConfig.value = true;
   // 获取配置数据
-  fetch('//localhost:3000/api/config')
+  fetch('/api/config')
     .then((response) => {
       if (!response.ok) {
         throw new Error(`API 请求失败: ${response.status}`);
@@ -158,7 +158,7 @@ function submitConfigForm() {
   };
   
   // 发送请求
-  fetch('//localhost:3000/api/config', {
+  fetch('/api/config', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

@@ -1,0 +1,14 @@
+{
+  "name": "fetcher",
+  "version": "1.0.0",
+  "description": "A simple fetcher package",
+  "main": "index.js",
+  "scripts": {
+    "build": "npm run install-f && npm run install-b && npm run build-f",
+    "install-f": "cd frontend && npm install",
+    "install-b": "cd backend && npm install",
+    "build-f": "cd frontend && npm run build"
+  },
+  "author": "",
+  "license": "ISC"
+}
