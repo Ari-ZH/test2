@@ -166,19 +166,19 @@ app.get('/api/prices', async (req, res) => {
   }
 });
 
-// API 端点：获取配置
+// 配置接口 - GET 获取当前配置
 app.get('/api/config', async (req, res) => {
   try {
     const config = await getLatestConfig();
     res.json(config);
   } catch (error) {
-    console.error('获取配置时出错:', error);
+    console.error('获取配置失败:', error);
     res.status(500).json({ error: '获取配置失败' });
   }
 });
 
-// API 端点：保存新配置
-app.post('/api/config', async (req, res) => {
+// 配置接口 - POST 更新配置
+app.post('/api/config', express.json(), async (req, res) => {
   try {
     const {
       minUp,
@@ -187,34 +187,34 @@ app.post('/api/config', async (req, res) => {
       silverSellPrice,
       platinumRecyclePrice,
       platinumSellPrice,
+      porpeziteRecyclePrice,
+      porpeziteSellPrice,
       updateTime,
       key,
     } = req.body;
+
+    // 验证密钥
     if (!key || key !== 'hengshang') {
-      return res.status(403).json({ error: '无效的密钥' });
+      return res.status(403).json({ error: '密钥无效，无法修改配置' });
     }
 
-    if (!minUp || !minDown || !silverRecyclePrice || !silverSellPrice) {
-      return res.status(400).json({ error: '缺少必要的配置参数' });
-    }
-
-    const newConfig = {
+    // 保存新配置
+    const config = await saveConfig({
       minUp: parseFloat(minUp),
       minDown: parseFloat(minDown),
       silverRecyclePrice: parseFloat(silverRecyclePrice),
       silverSellPrice: parseFloat(silverSellPrice),
-      platinumRecyclePrice: parseFloat(platinumRecyclePrice || 0),
-      platinumSellPrice: parseFloat(platinumSellPrice || 0),
-      updateTime:
-        updateTime ||
-        new Date().toISOString().replace('T', ' ').substring(0, 19),
-    };
+      platinumRecyclePrice: parseFloat(platinumRecyclePrice),
+      platinumSellPrice: parseFloat(platinumSellPrice),
+      porpeziteRecyclePrice: parseFloat(porpeziteRecyclePrice),
+      porpeziteSellPrice: parseFloat(porpeziteSellPrice),
+      updateTime,
+    });
 
-    const savedConfig = await saveConfig(newConfig);
-    res.json(savedConfig);
+    res.json(config);
   } catch (error) {
-    console.error('保存配置时出错:', error);
-    res.status(500).json({ error: '保存配置失败' });
+    console.error('更新配置失败:', error);
+    res.status(500).json({ error: '更新配置失败' });
   }
 });
 

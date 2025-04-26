@@ -32,6 +32,8 @@ function initDatabase() {
       silverSellPrice REAL NOT NULL,
       platinumRecyclePrice REAL NOT NULL DEFAULT 0,
       platinumSellPrice REAL NOT NULL DEFAULT 0,
+      porpeziteRecyclePrice REAL NOT NULL DEFAULT 0,
+      porpeziteSellPrice REAL NOT NULL DEFAULT 0,
       updateTime TEXT NOT NULL,
       createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
@@ -85,12 +87,14 @@ function checkAndInsertDefaultConfig() {
         silverSellPrice: 6.0,
         platinumRecyclePrice: 230.0,
         platinumSellPrice: 260.0,
+        porpeziteRecyclePrice: 290.0,
+        porpeziteSellPrice: 320.0,
         updateTime: new Date().toISOString().replace('T', ' ').substring(0, 19),
       };
 
       db.run(
-        `INSERT INTO metal_config (minUp, minDown, silverRecyclePrice, silverSellPrice, platinumRecyclePrice, platinumSellPrice, updateTime) 
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO metal_config (minUp, minDown, silverRecyclePrice, silverSellPrice, platinumRecyclePrice, platinumSellPrice, porpeziteRecyclePrice, porpeziteSellPrice, updateTime) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           defaultConfig.minUp,
           defaultConfig.minDown,
@@ -98,6 +102,8 @@ function checkAndInsertDefaultConfig() {
           defaultConfig.silverSellPrice,
           defaultConfig.platinumRecyclePrice,
           defaultConfig.platinumSellPrice,
+          defaultConfig.porpeziteRecyclePrice,
+          defaultConfig.porpeziteSellPrice,
           defaultConfig.updateTime,
         ],
         function (err) {
@@ -131,6 +137,8 @@ function getLatestConfig() {
               silverSellPrice: 6.0,
               platinumRecyclePrice: 230.0,
               platinumSellPrice: 260.0,
+              porpeziteRecyclePrice: 290.0,
+              porpeziteSellPrice: 320.0,
               updateTime: new Date()
                 .toISOString()
                 .replace('T', ' ')
@@ -147,8 +155,8 @@ function getLatestConfig() {
 function saveConfig(config) {
   return new Promise((resolve, reject) => {
     db.run(
-      `INSERT INTO metal_config (minUp, minDown, silverRecyclePrice, silverSellPrice, platinumRecyclePrice, platinumSellPrice, updateTime) 
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO metal_config (minUp, minDown, silverRecyclePrice, silverSellPrice, platinumRecyclePrice, platinumSellPrice, porpeziteRecyclePrice, porpeziteSellPrice, updateTime) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         config.minUp,
         config.minDown,
@@ -156,6 +164,8 @@ function saveConfig(config) {
         config.silverSellPrice,
         config.platinumRecyclePrice || 0,
         config.platinumSellPrice || 0,
+        config.porpeziteRecyclePrice || 0,
+        config.porpeziteSellPrice || 0,
         config.updateTime,
       ],
       function (err) {

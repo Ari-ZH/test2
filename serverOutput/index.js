@@ -21945,6 +21945,8 @@ function initDatabase() {
       silverSellPrice REAL NOT NULL,
       platinumRecyclePrice REAL NOT NULL DEFAULT 0,
       platinumSellPrice REAL NOT NULL DEFAULT 0,
+      porpeziteRecyclePrice REAL NOT NULL DEFAULT 0,
+      porpeziteSellPrice REAL NOT NULL DEFAULT 0,
       updateTime TEXT NOT NULL,
       createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
@@ -21998,12 +22000,14 @@ function checkAndInsertDefaultConfig() {
         silverSellPrice: 6.0,
         platinumRecyclePrice: 230.0,
         platinumSellPrice: 260.0,
+        porpeziteRecyclePrice: 290.0,
+        porpeziteSellPrice: 320.0,
         updateTime: new Date().toISOString().replace('T', ' ').substring(0, 19),
       };
 
       db.run(
-        `INSERT INTO metal_config (minUp, minDown, silverRecyclePrice, silverSellPrice, platinumRecyclePrice, platinumSellPrice, updateTime) 
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO metal_config (minUp, minDown, silverRecyclePrice, silverSellPrice, platinumRecyclePrice, platinumSellPrice, porpeziteRecyclePrice, porpeziteSellPrice, updateTime) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           defaultConfig.minUp,
           defaultConfig.minDown,
@@ -22011,6 +22015,8 @@ function checkAndInsertDefaultConfig() {
           defaultConfig.silverSellPrice,
           defaultConfig.platinumRecyclePrice,
           defaultConfig.platinumSellPrice,
+          defaultConfig.porpeziteRecyclePrice,
+          defaultConfig.porpeziteSellPrice,
           defaultConfig.updateTime,
         ],
         function (err) {
@@ -22044,6 +22050,8 @@ function getLatestConfig() {
               silverSellPrice: 6.0,
               platinumRecyclePrice: 230.0,
               platinumSellPrice: 260.0,
+              porpeziteRecyclePrice: 290.0,
+              porpeziteSellPrice: 320.0,
               updateTime: new Date()
                 .toISOString()
                 .replace('T', ' ')
@@ -22060,8 +22068,8 @@ function getLatestConfig() {
 function saveConfig(config) {
   return new Promise((resolve, reject) => {
     db.run(
-      `INSERT INTO metal_config (minUp, minDown, silverRecyclePrice, silverSellPrice, platinumRecyclePrice, platinumSellPrice, updateTime) 
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO metal_config (minUp, minDown, silverRecyclePrice, silverSellPrice, platinumRecyclePrice, platinumSellPrice, porpeziteRecyclePrice, porpeziteSellPrice, updateTime) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         config.minUp,
         config.minDown,
@@ -22069,6 +22077,8 @@ function saveConfig(config) {
         config.silverSellPrice,
         config.platinumRecyclePrice || 0,
         config.platinumSellPrice || 0,
+        config.porpeziteRecyclePrice || 0,
+        config.porpeziteSellPrice || 0,
         config.updateTime,
       ],
       function (err) {
@@ -22180,63 +22190,42 @@ function getFixedValue(type, value, fixedStep) {
  * }
  */
 function transformMetalData(rawData, config) {
-  if (!rawData) return [];
-
-  const result = [];
-  const data = Array.isArray(rawData) ? rawData : [rawData];
-
-  // 处理黄金数据
-  const goldData = data.find(
-    (item) => item.name === '黄金' || item.type.includes('au')
-  );
-  if (goldData) {
-    // 提取并格式化日期时间
-    const updateTime = goldData.time;
-
-    // 提取价格并应用配置的上浮和下降
-    const buyPrice = parseFloat(goldData.buyPrice);
-    const salePrice = parseFloat(goldData.salePrice);
-
-    // 应用配置的上浮和下降
-    const adjustedBuyPrice = getFixedValue(
-      'down',
-      buyPrice,
-      config.minDown
-    ).toFixed(2);
-    const adjustedSalePrice = getFixedValue(
-      'up',
-      salePrice,
-      config.minUp
-    ).toFixed(2);
-
-    result.push({
+  // 提取黄金数据
+  const goldData = rawData.find((item) => item.name === '黄金');
+  
+  // 创建返回数据数组
+  const processedData = [
+    {
       id: 1,
       type: '黄金',
-      recyclePrice: adjustedBuyPrice,
-      sellPrice: adjustedSalePrice,
-      updateTime,
-    });
-  }
+      recyclePrice: goldData?.buyPrice || '0.00',
+      sellPrice: goldData?.salePrice || '0.00',
+      updateTime: goldData?.time || new Date().toLocaleString('zh-CN'),
+    },
+    {
+      id: 2,
+      type: '白银',
+      recyclePrice: config.silverRecyclePrice.toFixed(2),
+      sellPrice: config.silverSellPrice.toFixed(2),
+      updateTime: goldData?.time || new Date().toLocaleString('zh-CN'),
+    },
+    {
+      id: 3,
+      type: '铂金',
+      recyclePrice: config.platinumRecyclePrice.toFixed(2),
+      sellPrice: config.platinumSellPrice.toFixed(2),
+      updateTime: goldData?.time || new Date().toLocaleString('zh-CN'),
+    },
+    {
+      id: 4,
+      type: '钯金',
+      recyclePrice: config.porpeziteRecyclePrice.toFixed(2),
+      sellPrice: config.porpeziteSellPrice.toFixed(2),
+      updateTime: goldData?.time || new Date().toLocaleString('zh-CN'),
+    }
+  ];
 
-  // 添加白银数据（使用配置中的固定价格）
-  result.push({
-    id: 2,
-    type: '白银',
-    recyclePrice: config.silverRecyclePrice.toFixed(2),
-    sellPrice: config.silverSellPrice.toFixed(2),
-    updateTime: config.updateTime,
-  });
-
-  // 添加铂金数据（使用配置中的固定价格）
-  result.push({
-    id: 3,
-    type: '铂金',
-    recyclePrice: config.platinumRecyclePrice.toFixed(2),
-    sellPrice: config.platinumSellPrice.toFixed(2),
-    updateTime: config.updateTime,
-  });
-
-  return result;
+  return processedData;
 }
 
 
@@ -22404,19 +22393,19 @@ app.get('/api/prices', async (req, res) => {
   }
 });
 
-// API 端点：获取配置
+// 配置接口 - GET 获取当前配置
 app.get('/api/config', async (req, res) => {
   try {
     const config = await getLatestConfig();
     res.json(config);
   } catch (error) {
-    console.error('获取配置时出错:', error);
+    console.error('获取配置失败:', error);
     res.status(500).json({ error: '获取配置失败' });
   }
 });
 
-// API 端点：保存新配置
-app.post('/api/config', async (req, res) => {
+// 配置接口 - POST 更新配置
+app.post('/api/config', express.json(), async (req, res) => {
   try {
     const {
       minUp,
@@ -22425,34 +22414,34 @@ app.post('/api/config', async (req, res) => {
       silverSellPrice,
       platinumRecyclePrice,
       platinumSellPrice,
+      porpeziteRecyclePrice,
+      porpeziteSellPrice,
       updateTime,
       key,
     } = req.body;
+
+    // 验证密钥
     if (!key || key !== 'hengshang') {
-      return res.status(403).json({ error: '无效的密钥' });
+      return res.status(403).json({ error: '密钥无效，无法修改配置' });
     }
 
-    if (!minUp || !minDown || !silverRecyclePrice || !silverSellPrice) {
-      return res.status(400).json({ error: '缺少必要的配置参数' });
-    }
-
-    const newConfig = {
+    // 保存新配置
+    const config = await saveConfig({
       minUp: parseFloat(minUp),
       minDown: parseFloat(minDown),
       silverRecyclePrice: parseFloat(silverRecyclePrice),
       silverSellPrice: parseFloat(silverSellPrice),
-      platinumRecyclePrice: parseFloat(platinumRecyclePrice || 0),
-      platinumSellPrice: parseFloat(platinumSellPrice || 0),
-      updateTime:
-        updateTime ||
-        new Date().toISOString().replace('T', ' ').substring(0, 19),
-    };
+      platinumRecyclePrice: parseFloat(platinumRecyclePrice),
+      platinumSellPrice: parseFloat(platinumSellPrice),
+      porpeziteRecyclePrice: parseFloat(porpeziteRecyclePrice),
+      porpeziteSellPrice: parseFloat(porpeziteSellPrice),
+      updateTime,
+    });
 
-    const savedConfig = await saveConfig(newConfig);
-    res.json(savedConfig);
+    res.json(config);
   } catch (error) {
-    console.error('保存配置时出错:', error);
-    res.status(500).json({ error: '保存配置失败' });
+    console.error('更新配置失败:', error);
+    res.status(500).json({ error: '更新配置失败' });
   }
 });
 

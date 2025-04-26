@@ -1,7 +1,13 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
 import GoldPriceHistory from './components/GoldPriceHistory.vue';
+
+// 添加 dayjs 的时区插件
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 // 定义数据源
 const metalPrices = ref([]);
@@ -17,6 +23,17 @@ const showConfig = ref(false);
 const showPriceHistory = ref(false);
 // 存储定时器ID
 let updateTimer = null;
+let beijingTimeTimer = null;
+
+// 北京时间
+const beijingTime = ref('');
+
+// 更新北京时间
+function updateBeijingTime() {
+  beijingTime.value = dayjs()
+    .tz('Asia/Shanghai')
+    .format('YYYY年MM月DD日 HH:mm:ss');
+}
 
 // 配置模态框相关
 const showConfigModal = ref(false);
@@ -27,7 +44,9 @@ const configForm = ref({
   silverRecyclePrice: 0,
   silverSellPrice: 0,
   platinumRecyclePrice: 0,
-  platinumSellPrice: 0
+  platinumSellPrice: 0,
+  porpeziteRecyclePrice: 0,
+  porpeziteSellPrice: 0,
 });
 const isSubmitting = ref(false);
 const formError = ref(null);
@@ -48,9 +67,7 @@ function startRandomUpdates() {
 
 function updateData() {
   error.value = null;
-  fetch(
-    `/api/prices?time=${Date.now()}&${location.search.slice(1)}`
-  )
+  fetch(`/api/prices?time=${Date.now()}&${location.search.slice(1)}`)
     .then((response) => {
       if (!response.ok) {
         throw new Error(`API 请求失败: ${response.status}`);
@@ -128,7 +145,9 @@ function handleConfigClick() {
       silverRecyclePrice: configData.value.silverRecyclePrice,
       silverSellPrice: configData.value.silverSellPrice,
       platinumRecyclePrice: configData.value.platinumRecyclePrice,
-      platinumSellPrice: configData.value.platinumSellPrice
+      platinumSellPrice: configData.value.platinumSellPrice,
+      porpeziteRecyclePrice: configData.value.porpeziteRecyclePrice,
+      porpeziteSellPrice: configData.value.porpeziteSellPrice,
     };
   }
 }
@@ -137,14 +156,14 @@ function handleConfigClick() {
 function submitConfigForm() {
   formError.value = null;
   isSubmitting.value = true;
-  
+
   // 验证key是否填写
   if (!configForm.value.key) {
     formError.value = '请输入验证密钥';
     isSubmitting.value = false;
     return;
   }
-  
+
   // 准备发送的数据
   const formData = {
     minUp: parseFloat(configForm.value.minUp),
@@ -153,37 +172,39 @@ function submitConfigForm() {
     silverSellPrice: parseFloat(configForm.value.silverSellPrice),
     platinumRecyclePrice: parseFloat(configForm.value.platinumRecyclePrice),
     platinumSellPrice: parseFloat(configForm.value.platinumSellPrice),
+    porpeziteRecyclePrice: parseFloat(configForm.value.porpeziteRecyclePrice),
+    porpeziteSellPrice: parseFloat(configForm.value.porpeziteSellPrice),
     updateTime: dayjs().format('YYYY-MM-DD HH:mm:ss'),
-    key: configForm.value.key
+    key: configForm.value.key,
   };
-  
+
   // 发送请求
   fetch('/api/config', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(formData)
+    body: JSON.stringify(formData),
   })
-  .then((response) => {
-    if (!response.ok) {
-      throw new Error(`API 请求失败: ${response.status}`);
-    }
-    return response.json();
-  })
-  .then((res) => {
-    console.log('更新配置数据成功:', res);
-    configData.value = res;
-    showConfigModal.value = false;
-    alert('配置更新成功');
-  })
-  .catch((err) => {
-    console.error('更新配置数据失败:', err);
-    formError.value = `更新失败: ${err.message}`;
-  })
-  .finally(() => {
-    isSubmitting.value = false;
-  });
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`API 请求失败: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then((res) => {
+      console.log('更新配置数据成功:', res);
+      configData.value = res;
+      showConfigModal.value = false;
+      alert('配置更新成功');
+    })
+    .catch((err) => {
+      console.error('更新配置数据失败:', err);
+      formError.value = `更新失败: ${err.message}`;
+    })
+    .finally(() => {
+      isSubmitting.value = false;
+    });
 }
 
 // 关闭配置模态框
@@ -200,12 +221,18 @@ onMounted(async () => {
   startRandomUpdates();
   // 获取url中的参数 silverR 和 silverS
   const urlParams = new URLSearchParams(location.search);
+  // 启动北京时间更新
+  updateBeijingTime();
+  beijingTimeTimer = setInterval(updateBeijingTime, 1000);
 });
 
 // 组件卸载时清除定时器
 onUnmounted(() => {
   if (updateTimer) {
     clearTimeout(updateTimer);
+  }
+  if (beijingTimeTimer) {
+    clearInterval(beijingTimeTimer);
   }
 });
 </script>
@@ -233,8 +260,8 @@ onUnmounted(() => {
             <tr>
               <th>金属类别</th>
               <th>回收价格</th>
-              <th>卖出价格</th>
-              <th>价格更新时间</th>
+              <th>销售价格</th>
+              <!-- <th>价格更新时间</th> -->
             </tr>
           </thead>
           <tbody>
@@ -256,7 +283,7 @@ onUnmounted(() => {
                     : ''
                 }}
               </td>
-              <td>{{ item.updateTime }}</td>
+              <!-- <td>{{ item.updateTime }}</td> -->
             </tr>
           </tbody>
         </table>
@@ -268,104 +295,135 @@ onUnmounted(() => {
         配置项:
         <span>{{ configData }}</span>
       </div>
+      <!-- 添加北京时间显示 -->
+      <div class="beijing-time-container">
+        <div class="beijing-time">北京时间: {{ beijingTime }}</div>
+      </div>
       <footer class="contact-section">
         <div class="contact-info">联系方式: 0313-3070555</div>
       </footer>
     </div>
 
     <!-- 配置模态框 -->
-    <div v-if="showConfigModal" class="config-modal-backdrop" @click.self="closeConfigModal">
+    <div
+      v-if="showConfigModal"
+      class="config-modal-backdrop"
+      @click.self="closeConfigModal"
+    >
       <div class="config-modal">
         <div class="config-modal-header">
           <h3>配置设置</h3>
-          <button class="close-button" @click="closeConfigModal">&times;</button>
+          <button class="close-button" @click="closeConfigModal">
+            &times;
+          </button>
         </div>
-        
+
         <div class="config-modal-body">
           <div v-if="formError" class="form-error">{{ formError }}</div>
-          
+
           <div class="form-group">
             <label for="configKey">验证密钥</label>
-            <input 
-              id="configKey" 
-              type="password" 
-              v-model="configForm.key" 
-              placeholder="请输入验证密钥" 
+            <input
+              id="configKey"
+              type="password"
+              v-model="configForm.key"
+              placeholder="请输入验证密钥"
               required
             />
           </div>
-          
+
           <div class="form-group">
             <label for="minUp">最小上调幅度</label>
-            <input 
-              id="minUp" 
-              type="number" 
-              v-model="configForm.minUp" 
-              step="0.1" 
+            <input
+              id="minUp"
+              type="number"
+              v-model="configForm.minUp"
+              step="0.1"
               required
             />
           </div>
-          
+
           <div class="form-group">
             <label for="minDown">最小下调幅度</label>
-            <input 
-              id="minDown" 
-              type="number" 
-              v-model="configForm.minDown" 
-              step="0.1" 
+            <input
+              id="minDown"
+              type="number"
+              v-model="configForm.minDown"
+              step="0.1"
               required
             />
           </div>
-          
+
           <div class="form-group">
             <label for="silverRecyclePrice">白银回收价格</label>
-            <input 
-              id="silverRecyclePrice" 
-              type="number" 
-              v-model="configForm.silverRecyclePrice" 
-              step="0.01" 
+            <input
+              id="silverRecyclePrice"
+              type="number"
+              v-model="configForm.silverRecyclePrice"
+              step="0.01"
               required
             />
           </div>
-          
+
           <div class="form-group">
             <label for="silverSellPrice">白银卖出价格</label>
-            <input 
-              id="silverSellPrice" 
-              type="number" 
-              v-model="configForm.silverSellPrice" 
-              step="0.01" 
+            <input
+              id="silverSellPrice"
+              type="number"
+              v-model="configForm.silverSellPrice"
+              step="0.01"
               required
             />
           </div>
-          
+
           <div class="form-group">
             <label for="platinumRecyclePrice">铂金回收价格</label>
-            <input 
-              id="platinumRecyclePrice" 
-              type="number" 
-              v-model="configForm.platinumRecyclePrice" 
-              step="0.01" 
+            <input
+              id="platinumRecyclePrice"
+              type="number"
+              v-model="configForm.platinumRecyclePrice"
+              step="0.01"
               required
             />
           </div>
-          
+
           <div class="form-group">
             <label for="platinumSellPrice">铂金卖出价格</label>
-            <input 
-              id="platinumSellPrice" 
-              type="number" 
-              v-model="configForm.platinumSellPrice" 
-              step="0.01" 
+            <input
+              id="platinumSellPrice"
+              type="number"
+              v-model="configForm.platinumSellPrice"
+              step="0.01"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="porpeziteRecyclePrice">钯金回收价格</label>
+            <input
+              id="porpeziteRecyclePrice"
+              type="number"
+              v-model="configForm.porpeziteRecyclePrice"
+              step="0.01"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="porpeziteSellPrice">钯金卖出价格</label>
+            <input
+              id="porpeziteSellPrice"
+              type="number"
+              v-model="configForm.porpeziteSellPrice"
+              step="0.01"
               required
             />
           </div>
         </div>
-        
         <div class="config-modal-footer">
-          <button 
-            class="submit-button" 
-            @click="submitConfigForm" 
+          <button
+            class="submit-button"
+            @click="submitConfigForm"
             :disabled="isSubmitting"
           >
             {{ isSubmitting ? '提交中...' : '提交' }}
@@ -427,6 +485,14 @@ body {
   justify-content: center;
   align-items: center;
   background-color: #610711;
+}
+
+/* 添加北京时间样式 */
+.beijing-time-container {
+  text-align: center;
+  margin: 10px 0;
+  font-size: 1.1rem;
+  color: #333;
 }
 
 /* Content section - 可滚动区域 */
@@ -504,7 +570,7 @@ body {
   width: 100%;
 }
 .company-logo {
-  max-width: 240px;
+  max-width: 340px;
 }
 
 .loading-indicator,
@@ -533,11 +599,13 @@ body {
 
 .config-modal {
   background-color: white;
-  padding: 20px;
+  padding: 16px;
   border-radius: 8px;
   width: 90%;
   max-width: 500px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  max-height: 100vh;
+  overflow: scroll;
 }
 
 .config-modal-header {
@@ -616,7 +684,7 @@ body {
 
 @media (max-width: 768px) {
   .company-logo {
-    width: 120px;
+    width: 180px;
   }
 
   .poster-title {
@@ -632,7 +700,7 @@ body {
 
   .contact-info {
     padding: 10px;
-    font-size: 0.95rem;
+    font-size: 1.2rem;
   }
 }
 </style>

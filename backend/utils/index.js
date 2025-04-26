@@ -38,63 +38,42 @@ export function getFixedValue(type, value, fixedStep) {
  * }
  */
 function transformMetalData(rawData, config) {
-  if (!rawData) return [];
-
-  const result = [];
-  const data = Array.isArray(rawData) ? rawData : [rawData];
-
-  // 处理黄金数据
-  const goldData = data.find(
-    (item) => item.name === '黄金' || item.type.includes('au')
-  );
-  if (goldData) {
-    // 提取并格式化日期时间
-    const updateTime = goldData.time;
-
-    // 提取价格并应用配置的上浮和下降
-    const buyPrice = parseFloat(goldData.buyPrice);
-    const salePrice = parseFloat(goldData.salePrice);
-
-    // 应用配置的上浮和下降
-    const adjustedBuyPrice = getFixedValue(
-      'down',
-      buyPrice,
-      config.minDown
-    ).toFixed(2);
-    const adjustedSalePrice = getFixedValue(
-      'up',
-      salePrice,
-      config.minUp
-    ).toFixed(2);
-
-    result.push({
+  // 提取黄金数据
+  const goldData = rawData.find((item) => item.name === '黄金');
+  
+  // 创建返回数据数组
+  const processedData = [
+    {
       id: 1,
       type: '黄金',
-      recyclePrice: adjustedBuyPrice,
-      sellPrice: adjustedSalePrice,
-      updateTime,
-    });
-  }
+      recyclePrice: goldData?.buyPrice || '0.00',
+      sellPrice: goldData?.salePrice || '0.00',
+      updateTime: goldData?.time || new Date().toLocaleString('zh-CN'),
+    },
+    {
+      id: 2,
+      type: '白银',
+      recyclePrice: config.silverRecyclePrice.toFixed(2),
+      sellPrice: config.silverSellPrice.toFixed(2),
+      updateTime: goldData?.time || new Date().toLocaleString('zh-CN'),
+    },
+    {
+      id: 3,
+      type: '铂金',
+      recyclePrice: config.platinumRecyclePrice.toFixed(2),
+      sellPrice: config.platinumSellPrice.toFixed(2),
+      updateTime: goldData?.time || new Date().toLocaleString('zh-CN'),
+    },
+    {
+      id: 4,
+      type: '钯金',
+      recyclePrice: config.porpeziteRecyclePrice.toFixed(2),
+      sellPrice: config.porpeziteSellPrice.toFixed(2),
+      updateTime: goldData?.time || new Date().toLocaleString('zh-CN'),
+    }
+  ];
 
-  // 添加白银数据（使用配置中的固定价格）
-  result.push({
-    id: 2,
-    type: '白银',
-    recyclePrice: config.silverRecyclePrice.toFixed(2),
-    sellPrice: config.silverSellPrice.toFixed(2),
-    updateTime: config.updateTime,
-  });
-
-  // 添加铂金数据（使用配置中的固定价格）
-  result.push({
-    id: 3,
-    type: '铂金',
-    recyclePrice: config.platinumRecyclePrice.toFixed(2),
-    sellPrice: config.platinumSellPrice.toFixed(2),
-    updateTime: config.updateTime,
-  });
-
-  return result;
+  return processedData;
 }
 
 export { transformMetalData };
