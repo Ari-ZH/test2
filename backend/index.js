@@ -52,6 +52,10 @@ app.use((req, res, next) => {
 // Middleware to parse JSON bodies
 app.use(express.json());
 
+// 添加价格数据缓存，使用数组可缓存多达 50 条记录，但只缓存 pricesData
+let priceCache = [];
+const MAX_CACHE_SIZE = 50;
+
 // API endpoint for metal prices
 app.get('/api/prices', async (req, res) => {
   try {
@@ -61,105 +65,148 @@ app.get('/api/prices', async (req, res) => {
     console.log('Received time parameter:', timeParam);
     console.log('Received origin parameter:', showOrigin);
 
-    // 获取最新配置
-    const config = await getLatestConfig();
-    const responseData = await fetch(
-      `http://ypjgold.cn/price/data?time=${timeParam}`,
-      {
-        headers: {
-          accept: '*/*',
-          'accept-language': 'zh-CN,zh;q=0.9',
-          'cache-control': 'no-cache',
-          pragma: 'no-cache',
-          'x-requested-with': 'XMLHttpRequest',
-          // cookie:
-          //   'Hm_lvt_00907a92664191457ef765fb6dac29a8=1745652125; Hm_lpvt_00907a92664191457ef765fb6dac29a8=1745652125; HMACCOUNT=BECA5EAE452C8581',
-          Referer: 'http://ypjgold.cn/',
-          'Referrer-Policy': 'strict-origin-when-cross-origin',
-        },
-        body: null,
-        method: 'GET',
+    let pricesData = null;
+    let rawData = null;
+
+    // 检查缓存中是否有匹配的时间戳记录
+    if (timeParam) {
+      // 查找时间差距不足4秒的缓存记录
+      const cacheEntry = priceCache.find(entry => {
+        const timeDiff = Math.abs(parseInt(timeParam) - parseInt(entry.timeParam));
+        return timeDiff < 4000;
+      });
+      
+      // 如果找到缓存记录，使用缓存的 pricesData
+      if (cacheEntry) {
+        console.log('Using cached pricesData, time parameter difference:', 
+          Math.abs(parseInt(timeParam) - parseInt(cacheEntry.timeParam)), 'ms');
+        pricesData = cacheEntry.pricesData;
       }
-    ).then((response) => response.json());
-    // 模拟的原始数据 (实际环境中这里可能来自其他 API 或数据库)
-    // const rawData = [
-    //   {
-    //     type: '1_au_1',
-    //     name: '黄金',
-    //     buyPrice: '729.00',
-    //     salePrice: '821.00',
-    //     minPrice: '789.30',
-    //     maxPrice: '790.00',
-    //     openPrice: null,
-    //     closePrice: null,
-    //     time: '2025-04-26 15:24:12',
-    //     allowDeal: false,
-    //     selling: true,
-    //     sort: 1,
-    //     rate: '1.0000',
-    //   },
-    // ];
-    const rawData = responseData.data;
+    }
 
-    // 转换数据为 pricesData 格式
-    const pricesData = transformMetalData(rawData, config);
+    // 如果没有找到缓存记录，则从API获取数据
+    if (!pricesData) {
+      // 获取最新配置
+      const config = await getLatestConfig();
+      const responseData = await fetch(
+        `http://ypjgold.cn/price/data?time=${timeParam}`,
+        {
+          headers: {
+            accept: '*/*',
+            'accept-language': 'zh-CN,zh;q=0.9',
+            'cache-control': 'no-cache',
+            pragma: 'no-cache',
+            'x-requested-with': 'XMLHttpRequest',
+            Referer: 'http://ypjgold.cn/',
+            'Referrer-Policy': 'strict-origin-when-cross-origin',
+          },
+          body: null,
+          method: 'GET',
+        }
+      ).then((response) => response.json());
+      
+      rawData = responseData.data;
 
-    // 获取黄金价格数据
-    const goldData = pricesData.find((item) => item.type === '黄金');
+      // 转换数据为 pricesData 格式
+      pricesData = transformMetalData(rawData, config);
 
-    if (goldData) {
-      // 获取最新一次记录的金价
-      const latestGoldPrice = await getLatestGoldPrice();
+      // 获取黄金价格数据
+      const goldData = pricesData.find((item) => item.type === '黄金');
 
-      // 当前金价
-      const currentSellPrice = parseFloat(goldData.sellPrice);
-      const currentRecyclePrice = parseFloat(goldData.recyclePrice);
+      if (goldData) {
+        // 获取最新一次记录的金价
+        const latestGoldPrice = await getLatestGoldPrice();
 
-      // 检查金价是否变化
-      let priceChanged = false;
+        // 当前金价
+        const currentSellPrice = parseFloat(goldData.sellPrice);
+        const currentRecyclePrice = parseFloat(goldData.recyclePrice);
 
-      if (!latestGoldPrice) {
-        // 如果没有历史记录，则创建第一条记录
-        priceChanged = true;
-      } else {
-        // 比较当前价格和历史价格
-        const lastSellPrice = parseFloat(latestGoldPrice.sellPrice);
-        const lastRecyclePrice = parseFloat(latestGoldPrice.recyclePrice);
+        // 检查金价是否变化
+        let priceChanged = false;
 
-        // 如果卖出价格或回收价格有变化，则记录新的金价
-        if (
-          currentSellPrice !== lastSellPrice ||
-          currentRecyclePrice !== lastRecyclePrice
-        ) {
+        if (!latestGoldPrice) {
+          // 如果没有历史记录，则创建第一条记录
           priceChanged = true;
+        } else {
+          // 比较当前价格和历史价格
+          const lastSellPrice = parseFloat(latestGoldPrice.sellPrice);
+          const lastRecyclePrice = parseFloat(latestGoldPrice.recyclePrice);
+
+          // 如果卖出价格或回收价格有变化，则记录新的金价
+          if (
+            currentSellPrice !== lastSellPrice ||
+            currentRecyclePrice !== lastRecyclePrice
+          ) {
+            priceChanged = true;
+          }
+        }
+
+        // 如果价格变化，保存新的金价记录
+        const goldItem = pricesData.find((item) => item.type === '黄金');
+        if (priceChanged) {
+          const priceRecord = {
+            sellPrice: currentSellPrice,
+            recyclePrice: currentRecyclePrice,
+            changeTime: goldItem.updateTime,
+          };
+          await saveGoldPriceChange(priceRecord);
+          console.log('金价变化已记录:', priceRecord);
+        } else {
+          const latestGoldPriceHistory = await getGoldPriceHistory(1);
+          goldItem.updateTime = latestGoldPriceHistory[0].changeTime; // 将记录添加到返回数据中
+          console.log('金价未变化，无需记录');
         }
       }
 
-      // 如果价格变化，保存新的金价记录
-      const goldItem = pricesData.find((item) => item.type === '黄金');
-      if (priceChanged) {
-        const priceRecord = {
-          sellPrice: currentSellPrice,
-          recyclePrice: currentRecyclePrice,
-          changeTime: goldItem.updateTime,
-        };
-        await saveGoldPriceChange(priceRecord);
-        console.log('金价变化已记录:', priceRecord);
-      } else {
-        const latestGoldPriceHistory = await getGoldPriceHistory(1);
-        goldItem.updateTime = latestGoldPriceHistory[0].changeTime; // 将记录添加到返回数据中
-        console.log('金价未变化，无需记录');
+      // 更新缓存 - 只添加 pricesData 到缓存
+      if (timeParam) {
+        // 添加新记录到缓存开头（最新的记录放在前面）
+        priceCache.unshift({
+          timeParam,
+          pricesData: pricesData,
+          timestamp: Date.now() // 添加时间戳，便于日后可能的缓存过期策略
+        });
+        
+        // 如果缓存超出最大限制，移除最旧的记录
+        if (priceCache.length > MAX_CACHE_SIZE) {
+          priceCache = priceCache.slice(0, MAX_CACHE_SIZE);
+        }
+        
+        console.log(`Cache updated. Current cache size: ${priceCache.length}`);
       }
     }
 
-    if (showOrigin) {
-      res.json({
-        priceList: pricesData,
-        originList: rawData.filter((item) => item.name === '黄金'),
-      });
-    } else {
-      res.json({ priceList: pricesData, originList: null });
+    // 如果需要原始数据但没有在缓存中找到，需要获取原始数据
+    if (showOrigin && !rawData) {
+      const responseData = await fetch(
+        `http://ypjgold.cn/price/data?time=${timeParam}`,
+        {
+          headers: {
+            accept: '*/*',
+            'accept-language': 'zh-CN,zh;q=0.9',
+            'cache-control': 'no-cache',
+            pragma: 'no-cache',
+            'x-requested-with': 'XMLHttpRequest',
+            Referer: 'http://ypjgold.cn/',
+            'Referrer-Policy': 'strict-origin-when-cross-origin',
+          },
+          body: null,
+          method: 'GET',
+        }
+      ).then((response) => response.json());
+      
+      rawData = responseData.data;
     }
+
+    // 根据 showOrigin 参数决定返回的数据结构
+    const responsePayload = showOrigin && rawData
+      ? {
+          priceList: pricesData,
+          originList: rawData.filter((item) => item.name === '黄金'),
+        }
+      : { priceList: pricesData, originList: null };
+
+    res.json(responsePayload);
   } catch (error) {
     console.error('获取价格数据时出错:', error);
     res.status(500).json({ error: '获取价格数据失败' });

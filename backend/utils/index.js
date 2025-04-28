@@ -1,5 +1,8 @@
 /** 向上向下取整数 */
 export function getFixedValue(type, value, fixedStep) {
+  if (!value) {
+    return '';
+  }
   if (type === 'up') {
     return Math.ceil(Number(value) / 5) * 5 + fixedStep;
   } else if (type === 'down') {
@@ -40,14 +43,15 @@ export function getFixedValue(type, value, fixedStep) {
 function transformMetalData(rawData, config) {
   // 提取黄金数据
   const goldData = rawData.find((item) => item.name === '黄金');
-  
+
   // 创建返回数据数组
   const processedData = [
     {
       id: 1,
       type: '黄金',
-      recyclePrice: goldData?.buyPrice || '0.00',
-      sellPrice: goldData?.salePrice || '0.00',
+      recyclePrice:
+        getFixedValue('down', goldData?.buyPrice, config.minDown) || '--',
+      sellPrice: getFixedValue('up', goldData?.salePrice, config.minUp) || '--',
       updateTime: goldData?.time || new Date().toLocaleString('zh-CN'),
     },
     {
@@ -70,7 +74,7 @@ function transformMetalData(rawData, config) {
       recyclePrice: config.porpeziteRecyclePrice.toFixed(2),
       sellPrice: config.porpeziteSellPrice.toFixed(2),
       updateTime: goldData?.time || new Date().toLocaleString('zh-CN'),
-    }
+    },
   ];
 
   return processedData;
