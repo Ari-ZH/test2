@@ -1,9 +1,20 @@
 const ZH_SPT = 'SPT_bWcFeRTxRQ1BTuy1TXz6HoBYHb27';
 const MQY_SPT = 'SPT_cIdNUyRrlsCrnWAY9aQPYDu4TJb1';
 const BCJ_SPT = 'SPT_jkQuCTQ9qRvsZIqpWJZWSiUSZb7c';
+import dayjs from 'dayjs';
 export function dispatchNotify(params) {
+  // Only send notifications between 9 AM and 9 PM
   const { typeText, realTimeValue, beforeValue, currentValue, updateTime } =
     params;
+  const updateDate = dayjs(updateTime);
+  const updateHour = updateDate.hour();
+  if (updateHour < 9 || updateHour >= 21) {
+    console.log('Notification not sent due to time restrictions.');
+    return Promise.resolve({
+      success: false,
+      message: 'Outside notification hours (9AM-9PM)',
+    });
+  }
   const data = {
     content: `
       <div style="font-family: Arial, sans-serif; padding: 10px; color: #333333; background-color: #ffffff;">
@@ -26,7 +37,7 @@ export function dispatchNotify(params) {
         </p>
       </div>
     `,
-    sptList: [ZH_SPT, BCJ_SPT],
+    sptList: [ZH_SPT, BCJ_SPT, MQY_SPT],
     contentType: '2',
     summary: `${typeText}:${beforeValue}>${currentValue},实时:${realTimeValue}`,
   };
