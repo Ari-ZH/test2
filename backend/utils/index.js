@@ -40,9 +40,9 @@ export function getFixedValue(type, value, fixedStep) {
  *   updateTime: "2025年4月26日 14:30"
  * }
  */
-function transformMetalData(rawData, config) {
+function transformMetalData(goldData, config) {
   // 提取黄金数据
-  const goldData = rawData.find((item) => item.name === '黄金');
+  // const goldData = rawData.find((item) => item.name === '黄金');
 
   // 创建返回数据数组
   const processedData = [
