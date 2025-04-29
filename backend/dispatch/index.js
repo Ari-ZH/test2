@@ -3,6 +3,7 @@ const MQY_SPT = 'SPT_cIdNUyRrlsCrnWAY9aQPYDu4TJb1';
 const BCJ_SPT = 'SPT_jkQuCTQ9qRvsZIqpWJZWSiUSZb7c';
 import dayjs from 'dayjs';
 export function dispatchNotify(params) {
+  return;
   // Only send notifications between 9 AM and 9 PM
   const { typeText, realTimeValue, beforeValue, currentValue, updateTime } =
     params;
