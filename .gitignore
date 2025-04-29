@@ -4,3 +4,4 @@ node_modules
 project
 *.zip
 package-lock.json
+config.db
