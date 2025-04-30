@@ -68,6 +68,30 @@ function initDatabase() {
       }
     }
   );
+  
+  // 创建定时任务金价记录表 - 新表，不影响原有表
+  db.run(
+    `
+    CREATE TABLE IF NOT EXISTS scheduled_gold_prices (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sellPrice REAL NOT NULL,
+      recyclePrice REAL NOT NULL,
+      rawSellPrice REAL NOT NULL,
+      rawRecyclePrice REAL NOT NULL,
+      prevSellPrice REAL,
+      prevRecyclePrice REAL,
+      changeTime TEXT NOT NULL,
+      createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `,
+    (err) => {
+      if (err) {
+        console.error('创建定时任务金价记录表失败:', err.message);
+      } else {
+        console.log('定时任务金价记录表已创建或已存在');
+      }
+    }
+  );
 }
 
 // 检查是否有默认配置，如果没有则插入
@@ -234,4 +258,73 @@ function getGoldPriceHistory(limit = 100) {
   });
 }
 
-export { db, getLatestConfig, saveConfig, getLatestGoldPrice, saveGoldPriceChange, getGoldPriceHistory };
+// 获取最新的定时任务金价记录
+function getLatestScheduledGoldPrice() {
+  return new Promise((resolve, reject) => {
+    db.get(
+      'SELECT * FROM scheduled_gold_prices ORDER BY id DESC LIMIT 1',
+      (err, row) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(row || null);
+        }
+      }
+    );
+  });
+}
+
+// 保存新的定时任务金价记录
+function saveScheduledGoldPrice(priceData) {
+  return new Promise((resolve, reject) => {
+    db.run(
+      `INSERT INTO scheduled_gold_prices (sellPrice, recyclePrice, rawSellPrice, rawRecyclePrice, prevSellPrice, prevRecyclePrice, changeTime) 
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        priceData.sellPrice,
+        priceData.recyclePrice,
+        priceData.rawSellPrice,
+        priceData.rawRecyclePrice,
+        priceData.prevSellPrice,
+        priceData.prevRecyclePrice,
+        priceData.changeTime,
+      ],
+      function (err) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve({ id: this.lastID, ...priceData });
+        }
+      }
+    );
+  });
+}
+
+// 获取定时任务金价历史记录
+function getScheduledGoldPriceHistory(limit = 100) {
+  return new Promise((resolve, reject) => {
+    db.all(
+      'SELECT * FROM scheduled_gold_prices ORDER BY id DESC LIMIT ?',
+      [limit],
+      (err, rows) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(rows || []);
+        }
+      }
+    );
+  });
+}
+
+export { 
+  db, 
+  getLatestConfig, 
+  saveConfig, 
+  getLatestGoldPrice, 
+  saveGoldPriceChange, 
+  getGoldPriceHistory,
+  getLatestScheduledGoldPrice,
+  saveScheduledGoldPrice,
+  getScheduledGoldPriceHistory
+};

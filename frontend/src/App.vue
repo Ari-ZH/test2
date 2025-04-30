@@ -1,13 +1,9 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
-import dayjs from 'dayjs';
-import utc from 'dayjs/plugin/utc';
-import timezone from 'dayjs/plugin/timezone';
 import GoldPriceHistory from './components/GoldPriceHistory.vue';
-
-// 添加 dayjs 的时区插件
-dayjs.extend(utc);
-dayjs.extend(timezone);
+import MetalPriceTable from './components/MetalPriceTable.vue';
+import ConfigModal from './components/ConfigModal.vue';
+import BeijingTime from './components/BeijingTime.vue';
 
 // 定义数据源
 const metalPrices = ref([]);
@@ -23,40 +19,15 @@ const showConfig = ref(false);
 const showPriceHistory = ref(false);
 // 存储定时器ID
 let updateTimer = null;
-let beijingTimeTimer = null;
-
-// 北京时间
-const beijingTime = ref('');
-
-// 更新北京时间
-function updateBeijingTime() {
-  beijingTime.value = dayjs()
-    .tz('Asia/Shanghai')
-    .format('YYYY年MM月DD日 HH:mm:ss');
-}
 
 // 配置模态框相关
 const showConfigModal = ref(false);
-const configForm = ref({
-  key: '',
-  minUp: 0,
-  minDown: 0,
-  silverRecyclePrice: 0,
-  silverSellPrice: 0,
-  platinumRecyclePrice: 0,
-  platinumSellPrice: 0,
-  porpeziteRecyclePrice: 0,
-  porpeziteSellPrice: 0,
-});
-const isSubmitting = ref(false);
-const formError = ref(null);
 
 // 随机更新函数
 function startRandomUpdates() {
   const scheduleNextUpdate = () => {
     // 生成2-8秒之间的随机时间
     const randomDelay = Math.floor(Math.random() * (8000 - 2000 + 1)) + 2000;
-    console.log(`下次数据更新将在 ${randomDelay / 1000} 秒后进行`);
     updateTimer = setTimeout(() => {
       updateData();
       scheduleNextUpdate(); // 安排下一次更新
@@ -67,7 +38,7 @@ function startRandomUpdates() {
 
 function updateData() {
   error.value = null;
-  fetch(`/api/prices?time=${Date.now()}&${location.search.slice(1)}`)
+  fetch(`/api/latest-price?time=${Date.now()}&${location.search.slice(1)}`)
     .then((response) => {
       if (!response.ok) {
         throw new Error(`API 请求失败: ${response.status}`);
@@ -76,13 +47,7 @@ function updateData() {
     })
     .then((res) => {
       metalPrices.value = res.priceList;
-      originList.value = res.originList;
-      console.log(
-        '获取价格数据成功:',
-        metalPrices.value,
-        '原始列表:',
-        originList.value
-      );
+      console.log('获取价格数据成功:', metalPrices.value);
     })
     .catch((err) => {
       console.error('获取价格数据失败:', err);
@@ -113,79 +78,29 @@ function fetchConfig() {
     });
 }
 
-// 处理logo点击事件
-function handleLogoClick() {
-  const now = Date.now();
-  // 如果超过3秒，重置计数器
-  if (now - lastClickTime.value > 500) {
-    clickCount.value = 1;
-  } else {
-    clickCount.value++;
-  }
-  lastClickTime.value = now;
-  // 如果在3秒内点击了5次
-  if (clickCount.value >= 5) {
-    console.log('展示配置项');
-    fetchConfig();
-    showPriceHistory.value = !showPriceHistory.value; // 切换历史记录显示状态
-    clickCount.value = 0; // 重置计数器
-  }
-}
-/** 点击配置项 */
-function handleConfigClick() {
-  showConfig.value = false;
-  showPriceHistory.value = false;
-  showConfigModal.value = true;
-  if (configData.value) {
-    // 填充表单数据
-    configForm.value = {
-      key: '',
-      minUp: configData.value.minUp,
-      minDown: configData.value.minDown,
-      silverRecyclePrice: configData.value.silverRecyclePrice,
-      silverSellPrice: configData.value.silverSellPrice,
-      platinumRecyclePrice: configData.value.platinumRecyclePrice,
-      platinumSellPrice: configData.value.platinumSellPrice,
-      porpeziteRecyclePrice: configData.value.porpeziteRecyclePrice,
-      porpeziteSellPrice: configData.value.porpeziteSellPrice,
+// 存储来源更新定时器ID
+let originUpdateTimer = null;
+
+function startOriginUpdates() {
+  // 检查URL是否包含origin=1参数
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('origin') === '1') {
+    const scheduleNextOriginUpdate = () => {
+      // 生成1-3秒之间的随机时间
+      const randomDelay = Math.floor(Math.random() * (3000 - 1000 + 1)) + 1000;
+      // console.log(`下次来源数据更新将在 ${randomDelay / 1000} 秒后进行`);
+      originUpdateTimer = setTimeout(() => {
+        fetchOriginList();
+        scheduleNextOriginUpdate(); // 安排下一次更新
+      }, randomDelay);
     };
+    fetchOriginList();
+    scheduleNextOriginUpdate();
   }
 }
 
-// 提交配置表单
-function submitConfigForm() {
-  formError.value = null;
-  isSubmitting.value = true;
-
-  // 验证key是否填写
-  if (!configForm.value.key) {
-    formError.value = '请输入验证密钥';
-    isSubmitting.value = false;
-    return;
-  }
-
-  // 准备发送的数据
-  const formData = {
-    minUp: parseFloat(configForm.value.minUp),
-    minDown: parseFloat(configForm.value.minDown),
-    silverRecyclePrice: parseFloat(configForm.value.silverRecyclePrice),
-    silverSellPrice: parseFloat(configForm.value.silverSellPrice),
-    platinumRecyclePrice: parseFloat(configForm.value.platinumRecyclePrice),
-    platinumSellPrice: parseFloat(configForm.value.platinumSellPrice),
-    porpeziteRecyclePrice: parseFloat(configForm.value.porpeziteRecyclePrice),
-    porpeziteSellPrice: parseFloat(configForm.value.porpeziteSellPrice),
-    updateTime: dayjs().format('YYYY-MM-DD HH:mm:ss'),
-    key: configForm.value.key,
-  };
-
-  // 发送请求
-  fetch('/api/config', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(formData),
-  })
+function fetchOriginList() {
+  fetch(`/api/realtime-price?time=${Date.now()}`)
     .then((response) => {
       if (!response.ok) {
         throw new Error(`API 请求失败: ${response.status}`);
@@ -193,24 +108,54 @@ function submitConfigForm() {
       return response.json();
     })
     .then((res) => {
-      console.log('更新配置数据成功:', res);
-      configData.value = res;
-      showConfigModal.value = false;
-      alert('配置更新成功');
+      originList.value = res.originList || [];
+      console.log('获取来源数据成功:', originList.value);
     })
     .catch((err) => {
-      console.error('更新配置数据失败:', err);
-      formError.value = `更新失败: ${err.message}`;
-    })
-    .finally(() => {
-      isSubmitting.value = false;
+      console.error('获取来源数据失败:', err);
     });
 }
 
-// 关闭配置模态框
-function closeConfigModal() {
-  showConfigModal.value = false;
-  formError.value = null;
+// 在onMounted中添加启动来源更新的调用
+onMounted(() => {
+  startOriginUpdates();
+});
+
+// 在onUnmounted中清除来源更新定时器
+onUnmounted(() => {
+  if (originUpdateTimer) {
+    clearTimeout(originUpdateTimer);
+  }
+});
+// 处理logo点击事件
+function handleLogoClick() {
+  const now = Date.now();
+  // 如果超过0.5秒，重置计数器
+  if (now - lastClickTime.value > 500) {
+    clickCount.value = 1;
+  } else {
+    clickCount.value++;
+  }
+  lastClickTime.value = now;
+  // 如果在短时间内点击了5次
+  if (clickCount.value >= 5) {
+    console.log('展示配置项');
+    fetchConfig();
+    showPriceHistory.value = !showPriceHistory.value; // 切换历史记录显示状态
+    clickCount.value = 0; // 重置计数器
+  }
+}
+
+/** 点击配置项 */
+function handleConfigClick() {
+  showConfig.value = false;
+  showPriceHistory.value = false;
+  showConfigModal.value = true;
+}
+
+// 处理配置更新成功
+function handleConfigSuccess(newConfig) {
+  configData.value = newConfig;
 }
 
 // 从 API 获取数据
@@ -219,20 +164,12 @@ onMounted(async () => {
   updateData();
   // 启动随机间隔更新
   startRandomUpdates();
-  // 获取url中的参数 silverR 和 silverS
-  const urlParams = new URLSearchParams(location.search);
-  // 启动北京时间更新
-  updateBeijingTime();
-  beijingTimeTimer = setInterval(updateBeijingTime, 1000);
 });
 
 // 组件卸载时清除定时器
 onUnmounted(() => {
   if (updateTimer) {
     clearTimeout(updateTimer);
-  }
-  if (beijingTimeTimer) {
-    clearInterval(beijingTimeTimer);
   }
 });
 </script>
@@ -251,187 +188,37 @@ onUnmounted(() => {
       </header>
 
       <div class="content-section">
-        <div v-if="isLoading" class="loading-indicator">正在加载数据...</div>
-        <div v-else-if="error" class="error-message">
-          {{ error }}
-        </div>
-        <table v-else class="metal-table">
-          <thead>
-            <tr>
-              <th>金属类别</th>
-              <th>回收价格</th>
-              <th>销售价格</th>
-              <!-- <th>价格更新时间</th> -->
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(item, index) in metalPrices" :key="item.id">
-              <td>{{ item.type }}</td>
-              <td>
-                {{ `¥${item.recyclePrice}/克` }}
-                {{
-                  originList && originList[index]
-                    ? `(${originList[index].buyPrice})`
-                    : ''
-                }}
-              </td>
-              <td>
-                {{ `¥${item.sellPrice}/克` }}
-                {{
-                  originList && originList[index]
-                    ? `(${originList[index].salePrice})`
-                    : ''
-                }}
-              </td>
-              <!-- <td>{{ item.updateTime }}</td> -->
-            </tr>
-          </tbody>
-        </table>
+        <!-- 使用金属价格表组件 -->
+        <MetalPriceTable
+          :metalPrices="metalPrices"
+          :originList="originList"
+          :isLoading="isLoading"
+          :error="error"
+        />
 
         <!-- 金价历史记录组件 -->
         <GoldPriceHistory v-if="showPriceHistory" />
       </div>
+
       <div v-if="showConfig" class="config-section" @click="handleConfigClick">
         配置项:
         <span>{{ configData }}</span>
       </div>
-      <!-- 添加北京时间显示 -->
-      <div class="beijing-time-container">
-        <div class="beijing-time">北京时间: {{ beijingTime }}</div>
-      </div>
+
+      <!-- 使用北京时间组件 -->
+      <BeijingTime />
+
       <footer class="contact-section">
         <div class="contact-info">联系方式: 0313-3070555</div>
       </footer>
     </div>
 
-    <!-- 配置模态框 -->
-    <div
-      v-if="showConfigModal"
-      class="config-modal-backdrop"
-      @click.self="closeConfigModal"
-    >
-      <div class="config-modal">
-        <div class="config-modal-header">
-          <h3>配置设置</h3>
-          <button class="close-button" @click="closeConfigModal">
-            &times;
-          </button>
-        </div>
-
-        <div class="config-modal-body">
-          <div v-if="formError" class="form-error">{{ formError }}</div>
-
-          <div class="form-group">
-            <label for="configKey">验证密钥</label>
-            <input
-              id="configKey"
-              type="password"
-              v-model="configForm.key"
-              placeholder="请输入验证密钥"
-              required
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="minUp">最小上调幅度</label>
-            <input
-              id="minUp"
-              type="number"
-              v-model="configForm.minUp"
-              step="0.1"
-              required
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="minDown">最小下调幅度</label>
-            <input
-              id="minDown"
-              type="number"
-              v-model="configForm.minDown"
-              step="0.1"
-              required
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="silverRecyclePrice">白银回收价格</label>
-            <input
-              id="silverRecyclePrice"
-              type="number"
-              v-model="configForm.silverRecyclePrice"
-              step="0.01"
-              required
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="silverSellPrice">白银卖出价格</label>
-            <input
-              id="silverSellPrice"
-              type="number"
-              v-model="configForm.silverSellPrice"
-              step="0.01"
-              required
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="platinumRecyclePrice">铂金回收价格</label>
-            <input
-              id="platinumRecyclePrice"
-              type="number"
-              v-model="configForm.platinumRecyclePrice"
-              step="0.01"
-              required
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="platinumSellPrice">铂金卖出价格</label>
-            <input
-              id="platinumSellPrice"
-              type="number"
-              v-model="configForm.platinumSellPrice"
-              step="0.01"
-              required
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="porpeziteRecyclePrice">钯金回收价格</label>
-            <input
-              id="porpeziteRecyclePrice"
-              type="number"
-              v-model="configForm.porpeziteRecyclePrice"
-              step="0.01"
-              required
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="porpeziteSellPrice">钯金卖出价格</label>
-            <input
-              id="porpeziteSellPrice"
-              type="number"
-              v-model="configForm.porpeziteSellPrice"
-              step="0.01"
-              required
-            />
-          </div>
-        </div>
-        <div class="config-modal-footer">
-          <button
-            class="submit-button"
-            @click="submitConfigForm"
-            :disabled="isSubmitting"
-          >
-            {{ isSubmitting ? '提交中...' : '提交' }}
-          </button>
-          <button class="cancel-button" @click="closeConfigModal">取消</button>
-        </div>
-      </div>
-    </div>
+    <!-- 使用配置模态框组件 -->
+    <ConfigModal
+      v-model:show="showConfigModal"
+      :configData="configData"
+      @submit-success="handleConfigSuccess"
+    />
   </div>
 </template>
 
@@ -487,14 +274,6 @@ body {
   background-color: #610711;
 }
 
-/* 添加北京时间样式 */
-.beijing-time-container {
-  text-align: center;
-  margin: 10px 0;
-  font-size: 1.1rem;
-  color: #333;
-}
-
 /* Content section - 可滚动区域 */
 .content-section {
   flex: 1;
@@ -509,48 +288,6 @@ body {
   font-size: 1.8rem;
   font-weight: bold;
   margin: 15px 0;
-}
-
-.metal-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-}
-
-.metal-table th,
-.metal-table td {
-  padding: 12px 5px;
-  text-align: center;
-  color: #333;
-  border: none;
-}
-
-.metal-table th {
-  background-color: #d89614;
-  color: white;
-  font-weight: bold;
-  border: none;
-}
-
-.metal-table th:nth-child(1) {
-  width: 20%;
-}
-
-.metal-table th:nth-child(2),
-.metal-table th:nth-child(3) {
-  width: 25%;
-}
-
-.metal-table th:nth-child(4) {
-  width: 30%;
-}
-
-.metal-table td:nth-child(4) {
-  font-size: 0.9em;
-}
-
-.metal-table tr:last-child td {
-  border-bottom: none;
 }
 
 /* Contact section - 固定在底部 */
@@ -573,113 +310,11 @@ body {
   max-width: 340px;
 }
 
-.loading-indicator,
-.error-message {
-  text-align: center;
-  padding: 2rem;
-  font-size: 1.2rem;
-}
-
-.error-message {
-  color: #b91c1c;
-}
-
-.config-modal-backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.config-modal {
-  background-color: white;
-  padding: 16px;
-  border-radius: 8px;
-  width: 90%;
-  max-width: 500px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  max-height: 100vh;
-  overflow: scroll;
-}
-
-.config-modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.config-modal-header h3 {
-  margin: 0;
-}
-
-.close-button {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-}
-
-.config-modal-body {
-  margin-bottom: 20px;
-}
-
-.form-group {
-  margin-bottom: 15px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
-}
-
-.form-group input {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-}
-
-.config-modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-.submit-button,
-.cancel-button {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.submit-button {
-  background-color: #4caf50;
-  color: white;
-}
-
-.cancel-button {
-  background-color: #f44336;
-  color: white;
-}
-
-.submit-button:disabled {
-  background-color: #9e9e9e;
-  cursor: not-allowed;
-}
-
-.form-error {
-  color: #f44336;
-  margin-bottom: 15px;
+.config-section {
+  padding: 10px;
+  background-color: #f5f5f5;
   font-size: 0.9rem;
+  color: #333;
 }
 
 @media (max-width: 768px) {
@@ -690,12 +325,6 @@ body {
   .poster-title {
     font-size: 1.5rem;
     margin: 10px 0;
-  }
-
-  .metal-table th,
-  .metal-table td {
-    padding: 10px 8px;
-    font-size: 0.95rem;
   }
 
   .contact-info {

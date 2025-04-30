@@ -43,7 +43,6 @@ export function getFixedValue(type, value, fixedStep) {
 function transformMetalData(goldData, config) {
   // 提取黄金数据
   // const goldData = rawData.find((item) => item.name === '黄金');
-
   // 创建返回数据数组
   const processedData = [
     {

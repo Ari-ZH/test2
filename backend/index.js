@@ -4,12 +4,14 @@ import { fileURLToPath } from 'url';
 import {
   getLatestConfig,
   saveConfig,
-  getLatestGoldPrice,
-  saveGoldPriceChange,
-  getGoldPriceHistory,
+  getLatestScheduledGoldPrice,
+  getScheduledGoldPriceHistory,
+  saveScheduledGoldPrice,
 } from './utils/db.js';
 import { transformMetalData } from './utils/index.js';
 import { dispatchNotify } from './dispatch/index.js';
+import { randomInt } from 'crypto';
+import dayjs from 'dayjs';
 
 // 获取当前文件的目录路径
 const __filename = fileURLToPath(import.meta.url);
@@ -53,9 +55,9 @@ app.use((req, res, next) => {
 // Middleware to parse JSON bodies
 app.use(express.json());
 
-// 添加价格数据缓存，使用数组可缓存多达 50 条记录，但只缓存 pricesData
-let priceCache = [];
-const MAX_CACHE_SIZE = 50;
+// 定时任务的状态跟踪
+let schedulerRunning = false;
+let schedulerTimeout = null;
 
 async function getGoldRawData(timeParam) {
   try {
@@ -83,159 +85,142 @@ async function getGoldRawData(timeParam) {
   }
 }
 
-// API endpoint for metal prices
-app.get('/api/prices', async (req, res) => {
+// 定时任务函数：检查并记录金价变化
+async function scheduledGoldPriceCheck() {
   try {
-    // 获取 URL 中的 time 参数
-    const timeParam = req.query.time;
-    const showOrigin = req.query.origin;
-    // console.log('Received time parameter:', timeParam);
-    // console.log('Received origin parameter:', showOrigin);
+    // 获取北京时间
+    const now = new Date();
+    // 转换为北京时区 (UTC+8)
+    const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
+    const beijingTime = new Date(utcTime + 3600000 * 8);
+    const beijingHour = beijingTime.getHours();
 
-    let pricesData = null;
-    let rawGoldData = null;
+    console.log(
+      `定时任务: 北京时间 ${beijingHour}:${now.getMinutes()}:${now.getSeconds()}`
+    );
 
-    // 检查缓存中是否有匹配的时间戳记录
-    if (timeParam) {
-      // 查找时间差距不足4秒的缓存记录
-      const cacheEntry = priceCache.find((entry) => {
-        const timeDiff = Math.abs(
-          parseInt(timeParam) - parseInt(entry.timeParam)
-        );
-        return timeDiff < 4000;
-      });
+    // 生成时间戳参数
+    const timeParam = beijingTime.getTime();
 
-      // 如果找到缓存记录，使用缓存的 pricesData
-      if (cacheEntry) {
-        console.log(
-          'Using cached pricesData, time parameter difference:',
-          Math.abs(parseInt(timeParam) - parseInt(cacheEntry.timeParam)),
-          'ms'
-        );
-        pricesData = cacheEntry.pricesData;
-      }
-    }
+    // 获取最新配置
+    const config = await getLatestConfig();
 
-    // 如果没有找到缓存记录，则从API获取数据
-    if (!pricesData) {
-      // 获取最新配置
-      const config = await getLatestConfig();
-      rawGoldData = await getGoldRawData(timeParam);
+    // 获取原始金价数据
+    const rawGoldData = await getGoldRawData(timeParam);
 
-      // 转换数据为 pricesData 格式
-      pricesData = transformMetalData(rawGoldData, config);
+    if (rawGoldData) {
+      // 转换数据为标准格式
+      const pricesData = transformMetalData(rawGoldData, config);
 
       // 获取黄金价格数据
       const goldData = pricesData.find((item) => item.type === '黄金');
 
       if (goldData) {
-        // 获取最新一次记录的金价
-        const latestGoldPrice = await getLatestGoldPrice();
-
         // 当前金价
         const currentSellPrice = parseFloat(goldData.sellPrice);
         const currentRecyclePrice = parseFloat(goldData.recyclePrice);
+        const rawSellPrice = parseFloat(rawGoldData.salePrice);
+        const rawRecyclePrice = parseFloat(rawGoldData.buyPrice);
 
-        // 检查金价是否变化
-        let salePriceChanged = false;
-        let rePriceChanged = false;
+        // 获取最新一次记录的定时任务金价
+        const latestScheduledPrice = await getLatestScheduledGoldPrice();
 
-        if (!latestGoldPrice) {
-          // 如果没有历史记录，则创建第一条记录
-          salePriceChanged = true;
-          rePriceChanged = true;
+        let priceChanged = false;
+        let prevSellPrice = null;
+        let prevRecyclePrice = null;
+
+        // 比较金价是否变化
+        if (!latestScheduledPrice) {
+          // 如果没有历史记录，则记录第一条数据
+          priceChanged = true;
         } else {
-          // 比较当前价格和历史价格
-          const lastSellPrice = parseFloat(latestGoldPrice.sellPrice);
-          const lastRecyclePrice = parseFloat(latestGoldPrice.recyclePrice);
+          prevSellPrice = parseFloat(latestScheduledPrice.sellPrice);
+          prevRecyclePrice = parseFloat(latestScheduledPrice.recyclePrice);
 
-          // 如果卖出价格或回收价格有变化，则记录新的金价
-          if (currentSellPrice !== lastSellPrice) {
-            salePriceChanged = true;
-            if (!rawGoldData) {
-              rawGoldData = await getGoldRawData(timeParam);
-            }
+          // 如果卖出价格或回收价格有变化，则标记为变化
+          if (
+            currentSellPrice !== prevSellPrice ||
+            currentRecyclePrice !== prevRecyclePrice
+          ) {
+            priceChanged = true;
+          }
+        }
+
+        // 如果价格变化，保存新记录
+        if (priceChanged) {
+          const priceRecord = {
+            sellPrice: currentSellPrice,
+            recyclePrice: currentRecyclePrice,
+            rawSellPrice: rawSellPrice,
+            rawRecyclePrice: rawRecyclePrice,
+            prevSellPrice: prevSellPrice,
+            prevRecyclePrice: prevRecyclePrice,
+            changeTime: rawGoldData.time,
+          };
+          await saveScheduledGoldPrice(priceRecord);
+          console.log(
+            '定时任务：金价变化已记录:',
+            priceRecord,
+            '时间:',
+            dayjs(beijingTime).format('YYYY-MM-DD HH:mm:ss')
+          );
+          // 使用原有的通知逻辑
+          if (prevSellPrice !== null && currentSellPrice !== prevSellPrice) {
             dispatchNotify({
               typeText: '售卖',
               realTimeValue: rawGoldData.salePrice,
-              beforeValue: latestGoldPrice ? latestGoldPrice.sellPrice : '无',
+              beforeValue: prevSellPrice,
               currentValue: currentSellPrice,
               updateTime: rawGoldData.time,
             });
           }
-          if (currentRecyclePrice !== lastRecyclePrice) {
-            rePriceChanged = true;
-            if (!rawGoldData) {
-              rawGoldData = await getGoldRawData(timeParam);
-            }
+          if (
+            prevRecyclePrice !== null &&
+            currentRecyclePrice !== prevRecyclePrice
+          ) {
             dispatchNotify({
               typeText: '回收',
               realTimeValue: rawGoldData.buyPrice,
-              beforeValue: latestGoldPrice
-                ? latestGoldPrice.recyclePrice
-                : '无',
+              beforeValue: prevRecyclePrice,
               currentValue: currentRecyclePrice,
               updateTime: rawGoldData.time,
             });
           }
-        }
-
-        // 如果价格变化，保存新的金价记录
-        const goldItem = pricesData.find((item) => item.type === '黄金');
-        if (salePriceChanged || rePriceChanged) {
-          const priceRecord = {
-            sellPrice: currentSellPrice,
-            recyclePrice: currentRecyclePrice,
-            changeTime: goldItem.updateTime,
-          };
-          await saveGoldPriceChange(priceRecord);
-
-          console.log('金价变化已记录:', priceRecord);
         } else {
-          const latestGoldPriceHistory = await getGoldPriceHistory(1);
-          goldItem.updateTime = latestGoldPriceHistory[0].changeTime; // 将记录添加到返回数据中
-          console.log('金价未变化，无需记录');
+          console.log('定时任务：金价未变化，无需记录');
         }
       }
-
-      // 更新缓存 - 只添加 pricesData 到缓存
-      if (timeParam) {
-        // 添加新记录到缓存开头（最新的记录放在前面）
-        priceCache.unshift({
-          timeParam,
-          pricesData: pricesData,
-          timestamp: Date.now(), // 添加时间戳，便于日后可能的缓存过期策略
-        });
-
-        // 如果缓存超出最大限制，移除最旧的记录
-        if (priceCache.length > MAX_CACHE_SIZE) {
-          priceCache = priceCache.slice(0, MAX_CACHE_SIZE);
-        }
-
-        console.log(`Cache updated. Current cache size: ${priceCache.length}`);
-      }
     }
-
-    // 如果需要原始数据但没有在缓存中找到，需要获取原始数据
-    if (showOrigin && !rawGoldData) {
-      rawGoldData = await getGoldRawData(timeParam);
-    }
-
-    // 根据 showOrigin 参数决定返回的数据结构
-    const responsePayload =
-      showOrigin && rawGoldData
-        ? {
-            priceList: pricesData,
-            originList: [rawGoldData],
-          }
-        : { priceList: pricesData, originList: null };
-
-    res.json(responsePayload);
+    // 设置随机间隔 5-10 秒
+    const nextInterval = randomInt(5000, 10001); // 5000-10000ms
+    schedulerTimeout = setTimeout(scheduledGoldPriceCheck, nextInterval);
   } catch (error) {
-    console.error('获取价格数据时出错:', error);
-    res.status(500).json({ error: '获取价格数据失败' });
+    console.error('定时任务执行出错:', error);
+    // 出错后，继续尝试下一次执行
+    schedulerTimeout = setTimeout(scheduledGoldPriceCheck, 5000);
   }
-});
+}
+
+// 启动定时任务
+function startScheduler() {
+  if (!schedulerRunning) {
+    console.log('启动金价监控定时任务');
+    schedulerRunning = true;
+    scheduledGoldPriceCheck();
+  }
+}
+
+// 停止定时任务
+function stopScheduler() {
+  if (schedulerRunning) {
+    console.log('停止金价监控定时任务');
+    if (schedulerTimeout) {
+      clearTimeout(schedulerTimeout);
+      schedulerTimeout = null;
+    }
+    schedulerRunning = false;
+  }
+}
 
 // 配置接口 - GET 获取当前配置
 app.get('/api/config', async (req, res) => {
@@ -289,6 +274,87 @@ app.post('/api/config', express.json(), async (req, res) => {
   }
 });
 
+// 新增API端点：获取最新金价（从定时任务记录表获取）
+app.get('/api/latest-price', async (req, res) => {
+  try {
+    const latestPrice = await getLatestScheduledGoldPrice();
+    if (latestPrice) {
+      // Transform the data to match the priceList format
+      // Get the latest config to apply other metal prices
+      const config = await getLatestConfig();
+      const formattedPrice = [
+        {
+          type: '黄金',
+          recyclePrice: latestPrice.recyclePrice,
+          sellPrice: latestPrice.sellPrice,
+          updateTime: latestPrice.changeTime,
+          rawRecyclePrice: latestPrice.rawRecyclePrice,
+          rawSellPrice: latestPrice.rawSellPrice,
+        },
+        {
+          type: '白银',
+          recyclePrice: config.silverRecyclePrice,
+          sellPrice: config.silverSellPrice,
+          updateTime: latestPrice.changeTime,
+        },
+        {
+          type: '铂金',
+          recyclePrice: config.platinumRecyclePrice,
+          sellPrice: config.platinumSellPrice,
+          updateTime: latestPrice.changeTime,
+        },
+        {
+          type: '钯金',
+          recyclePrice: config.porpeziteRecyclePrice,
+          sellPrice: config.porpeziteSellPrice,
+          updateTime: latestPrice.changeTime,
+        },
+      ];
+
+      res.json({
+        priceList: formattedPrice,
+      });
+    } else {
+      res.json({
+        success: false,
+        message: '暂无记录',
+        priceList: [],
+      });
+    }
+  } catch (error) {
+    console.error('获取最新金价记录时出错:', error);
+    res.status(500).json({ error: '获取最新金价记录失败' });
+  }
+});
+
+// 新增API端点：获取实时金价（代理请求到数据源）
+app.get('/api/realtime-price', async (req, res) => {
+  try {
+    const timeParam = req.query.time;
+    const rawGoldData = await getGoldRawData(timeParam);
+    if (rawGoldData) {
+      console.log(
+        '获取实时数据:',
+        rawGoldData.salePrice,
+        rawGoldData.buyPrice,
+        timeParam
+      );
+      res.json({
+        success: true,
+        originList: [rawGoldData],
+      });
+    } else {
+      res.json({
+        success: false,
+        message: '获取实时金价失败',
+      });
+    }
+  } catch (error) {
+    console.error('获取实时金价数据时出错:', error);
+    res.status(500).json({ error: '获取实时金价数据失败' });
+  }
+});
+
 // Handle other /api requests
 app.use('/api', (req, res, next) => {
   // 获取 URL 中的 time 参数
@@ -297,9 +363,11 @@ app.use('/api', (req, res, next) => {
 
   // 只处理未被其他路由处理的 /api 请求
   if (
-    req.path !== '/prices' &&
+    // req.path !== '/prices' &&
     req.path !== '/config' &&
-    req.path !== '/price-history'
+    req.path !== '/price-history' &&
+    req.path !== '/latest-price' &&
+    req.path !== '/realtime-price'
   ) {
     const method = req.method;
     const queryParams = req.query;
@@ -320,7 +388,8 @@ app.use('/api', (req, res, next) => {
 app.get('/api/price-history', async (req, res) => {
   try {
     const limit = req.query.limit ? parseInt(req.query.limit) : 200;
-    const history = await getGoldPriceHistory(limit);
+    // 修改为从定时任务写入的表中获取金价历史记录
+    const history = await getScheduledGoldPriceHistory(limit);
     res.json({ history });
   } catch (error) {
     console.error('获取金价历史记录时出错:', error);
@@ -335,6 +404,22 @@ app.use('/assets', express.static(path.join(frontendPath, 'assets')));
 // Fallback to serve the frontend index.html for any other routes
 app.get('/', (req, res) => {
   res.sendFile(path.join(frontendPath, 'index.html'));
+});
+
+// 开启定时任务
+startScheduler();
+
+// 优雅地处理进程退出
+process.on('SIGINT', () => {
+  console.log('接收到 SIGINT，正在关闭服务器...');
+  stopScheduler();
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  console.log('接收到 SIGTERM，正在关闭服务器...');
+  stopScheduler();
+  process.exit(0);
 });
 
 // Start the server

@@ -9,14 +9,14 @@ const error = ref(null);
 async function fetchPriceHistory() {
   isLoading.value = true;
   error.value = null;
-  
+
   try {
     const response = await fetch(`/api/price-history?time=${Date.now()}`);
-    
+
     if (!response.ok) {
       throw new Error(`API请求失败: ${response.status}`);
     }
-    
+
     const data = await response.json();
     priceHistory.value = data.history || [];
     console.log('获取金价历史数据成功:', priceHistory.value);
@@ -31,10 +31,15 @@ async function fetchPriceHistory() {
 // 格式化日期时间
 function formatDateTime(dateTimeStr) {
   if (!dateTimeStr) return '暂无数据';
-  
+
   try {
     const date = new Date(dateTimeStr);
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+      2,
+      '0'
+    )}-${String(date.getDate()).padStart(2, '0')} ${String(
+      date.getHours()
+    ).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
   } catch (error) {
     console.error('日期格式化错误:', error);
     return dateTimeStr;
@@ -45,11 +50,6 @@ function formatDateTime(dateTimeStr) {
 onMounted(() => {
   fetchPriceHistory();
 });
-
-// 刷新数据
-function refreshData() {
-  fetchPriceHistory();
-}
 </script>
 
 <template>
@@ -59,13 +59,17 @@ function refreshData() {
     </div>
     <div v-if="isLoading" class="loading-indicator">正在加载历史数据...</div>
     <div v-else-if="error" class="error-message">{{ error }}</div>
-    <div v-else-if="priceHistory.length === 0" class="no-data-message">暂无金价变化记录</div>
+    <div v-else-if="priceHistory.length === 0" class="no-data-message">
+      暂无金价变化记录
+    </div>
     <table v-else class="history-table">
       <thead>
         <tr>
-          <th>变化时间</th>
-          <th>回收价格(元/克)</th>
-          <th>卖出价格(元/克)</th>
+          <th>变更时间</th>
+          <th>回收</th>
+          <th>售卖</th>
+          <th>源回收</th>
+          <th>源售卖</th>
         </tr>
       </thead>
       <tbody>
@@ -73,6 +77,8 @@ function refreshData() {
           <td>{{ formatDateTime(item.changeTime) }}</td>
           <td>{{ item.recyclePrice }}</td>
           <td>{{ item.sellPrice }}</td>
+          <td>{{ item.rawRecyclePrice }}</td>
+          <td>{{ item.rawSellPrice }}</td>
         </tr>
       </tbody>
     </table>
@@ -81,9 +87,9 @@ function refreshData() {
 
 <style scoped>
 .gold-history-container {
-  margin: 15px 0;
+  margin: 10px 0;
   padding: 0 8px;
-  max-width: 90%;
+  max-width: 98%;
   margin-left: auto;
   margin-right: auto;
 }
