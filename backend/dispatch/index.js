@@ -6,10 +6,17 @@ export function dispatchNotify(params) {
   // Only send notifications between 9 AM and 9 PM
   const { typeText, realTimeValue, beforeValue, currentValue, updateTime } =
     params;
-  const updateDate = dayjs(updateTime);
-  const updateHour = updateDate.hour();
+  const beijingDate = dayjs().utcOffset(8);
+  const updateHour = beijingDate.get('hour');
   if (updateHour < 9 || updateHour >= 21) {
-    console.log('Notification not sent due to time restrictions.');
+    console.log('Notification not sent due to time restrictions.', {
+      typeText,
+      realTimeValue,
+      beforeValue,
+      currentValue,
+      updateTime,
+      beijingDate: beijingDate.format('YYYY-MM-DD HH:mm:ss'),
+    });
     return Promise.resolve({
       success: false,
       message: 'Outside notification hours (9AM-9PM)',
@@ -42,6 +49,63 @@ export function dispatchNotify(params) {
     contentType: '2',
     summary: `${typeText}${beforeValue}=>${currentValue}，实时${realTimeValue}`,
   };
+  return fetch('https://wxpusher.zjiecode.com/api/send/message/simple-push', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+}
+
+export function dispatchCurrentPriceNotify(params) {
+  // Only send notifications between 9 AM and 9 PM
+  const { sellPrice, buyBackPrice, updateTime } = params;
+  const beijingDate = dayjs().utcOffset(8);
+  const updateHour = beijingDate.get('hour');
+  if (updateHour < 9 || updateHour >= 21) {
+    console.log('Notification not sent due to time restrictions.', {
+      sellPrice,
+      buyBackPrice,
+      updateTime,
+      beijingDate: beijingDate.format('YYYY-MM-DD HH:mm:ss'),
+    });
+    return Promise.resolve({
+      success: false,
+      message: 'Outside notification hours (9AM-9PM)',
+    });
+  }
+
+  const data = {
+    content: `
+      <div style="font-family: Arial, sans-serif; padding: 10px; color: #333333; background-color: #ffffff;">
+        <h2 style="color: #1a73e8; margin-bottom: 12px;">早9点 黄金价格通知</h2>
+        <p style="font-size: 16px; margin: 8px 0; color: #555555;">
+          更新时间: <span style="color: #4285f4; font-weight: 500;">${updateTime}</span>
+        </p>
+        <div style="background-color: #f8f9fa; padding: 12px; border-left: 4px solid #fbbc05; margin: 12px 0; border-radius: 4px;">
+          <p style="margin: 5px 0; color: #333333;">
+            售卖价格: <span style="color: #34a853; font-weight: bold;">${sellPrice}</span>
+          </p>
+          <p style="margin: 5px 0; color: #333333;">
+            回收价格: <span style="color: #ea4335; font-weight: bold;">${buyBackPrice}</span>
+          </p>
+          <p style="margin: 8px 0; color: #333333;">
+            差价: <span style="color: #4285f4; font-weight: bold;">${(
+              sellPrice - buyBackPrice
+            ).toFixed(2)}</span>
+          </p>
+        </div>
+        <p style="font-size: 14px; margin-top: 15px; color: #555555;">
+          查看更多: <a href="http://ypjgold.cn/show" style="color: #1a73e8; text-decoration: underline;">金价实时查询</a>
+        </p>
+      </div>
+    `,
+    sptList: [ZH_SPT, BCJ_SPT, MQY_SPT],
+    contentType: '2',
+    summary: `当前：售卖${sellPrice}，回收${buyBackPrice}`,
+  };
+
   return fetch('https://wxpusher.zjiecode.com/api/send/message/simple-push', {
     method: 'POST',
     headers: {

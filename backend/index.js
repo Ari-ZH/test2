@@ -9,7 +9,10 @@ import {
   saveScheduledGoldPrice,
 } from './utils/db.js';
 import { transformMetalData } from './utils/index.js';
-import { dispatchNotify } from './dispatch/index.js';
+import {
+  dispatchNotify,
+  dispatchCurrentPriceNotify,
+} from './dispatch/index.js';
 import { randomInt } from 'crypto';
 import dayjs from 'dayjs';
 
@@ -94,11 +97,6 @@ async function scheduledGoldPriceCheck() {
     const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
     const beijingTime = new Date(utcTime + 3600000 * 8);
     const beijingHour = beijingTime.getHours();
-
-    console.log(
-      `定时任务: 北京时间 ${beijingHour}:${now.getMinutes()}:${now.getSeconds()}`
-    );
-
     // 生成时间戳参数
     const timeParam = beijingTime.getTime();
 
@@ -187,7 +185,7 @@ async function scheduledGoldPriceCheck() {
             });
           }
         } else {
-          console.log('定时任务：金价未变化，无需记录');
+          console.log(`定时任务：北京时间 ${beijingHour}:${now.getMinutes()}:${now.getSeconds()} 金价未变化`);
         }
       }
     }
@@ -220,6 +218,58 @@ function stopScheduler() {
     }
     schedulerRunning = false;
   }
+}
+
+// 每日定时任务 - 获取金价历史记录中最新的数据
+function scheduleDaily9AMCheck() {
+  const now = new Date();
+  // 转换为北京时区 (UTC+8)
+  const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
+  const beijingTime = new Date(utcTime + 3600000 * 8);
+
+  // 计算下一个早上9点的时间
+  const next9AM = new Date(beijingTime);
+  next9AM.setHours(9, 1, 0, 0);
+
+  // 如果当前时间已经过了今天的9点，就设置为明天的9点
+  if (beijingTime.getHours() >= 9) {
+    next9AM.setDate(next9AM.getDate() + 1);
+  }
+  // 计算距离下一个9点还有多少毫秒
+  const msToNext9AM = next9AM.getTime() - beijingTime.getTime();
+  console.log(
+    `定时任务已设置：将在 ${next9AM.toLocaleString('zh-CN', {
+      timeZone: 'Asia/Shanghai',
+    })} 获取最新金价数据`
+  );
+  // 设置定时器，在指定时间执行
+  setTimeout(async function dailyCheck() {
+    try {
+      console.log(
+        `执行每日9点金价检查：${new Date().toLocaleString('zh-CN', {
+          timeZone: 'Asia/Shanghai',
+        })}`
+      );
+      // 获取最新金价记录
+      const latestPrice = await getLatestScheduledGoldPrice();
+      if (latestPrice) {
+        dispatchCurrentPriceNotify({
+          sellPrice: latestPrice.sellPrice,
+          buyBackPrice: latestPrice.recyclePrice,
+          updateTime: latestPrice.changeTime,
+        });
+      } else {
+        console.log('每日9点金价检查 - 暂无金价记录');
+      }
+
+      // 设置下一个24小时后的检查
+      scheduleDaily9AMCheck();
+    } catch (error) {
+      console.error('每日9点金价检查任务执行出错:', error);
+      // 出错后一小时后重试
+      setTimeout(scheduleDaily9AMCheck, 60 * 60 * 1000);
+    }
+  }, msToNext9AM);
 }
 
 // 配置接口 - GET 获取当前配置
@@ -406,8 +456,11 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(frontendPath, 'index.html'));
 });
 
-// 开启定时任务
+// 开启定时任务 拉取金价
 startScheduler();
+
+// 启动每日9点推送当前金价 定时任务
+scheduleDaily9AMCheck();
 
 // 优雅地处理进程退出
 process.on('SIGINT', () => {
