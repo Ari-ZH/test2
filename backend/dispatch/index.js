@@ -18,7 +18,7 @@ export function dispatchNotify(params) {
       beforeValue,
       currentValue,
       updateTime,
-      beijingDate: beijingDate.format('YYYY-MM-DD HH:mm:ss'),
+      beijingDate: dayjs(beijingTime).format('YYYY-MM-DD HH:mm:ss'),
     });
     return Promise.resolve({
       success: false,
@@ -43,7 +43,11 @@ export function dispatchNotify(params) {
           </p>
         </div>
         <p style="font-size: 14px; margin-top: 15px; color: #555555;">
-          查看更多: <a href="http://ypjgold.cn/show" style="color: #1a73e8; text-decoration: underline;">金价实时查询</a>
+          查看更多:
+        </p>
+        <p style="font-size: 14px; margin-top: 5px; color: #555555;">
+          <a href="http://ypjgold.cn/show" style="color: #1a73e8; text-decoration: underline; display: block; margin-bottom: 8px;">金价实时查询</a>
+          <a href="http://47.115.210.76/" style="color: #1a73e8; text-decoration: underline; display: block;">当前报价</a>
         </p>
       </div>
     `,
@@ -74,7 +78,7 @@ export function dispatchCurrentPriceNotify(params) {
       sellPrice,
       buyBackPrice,
       updateTime,
-      beijingDate: beijingDate.format('YYYY-MM-DD HH:mm:ss'),
+      beijingDate: dayjs(beijingTime).format('YYYY-MM-DD HH:mm:ss'),
     });
     return Promise.resolve({
       success: false,
@@ -102,8 +106,12 @@ export function dispatchCurrentPriceNotify(params) {
             ).toFixed(2)}</span>
           </p>
         </div>
-        <p style="font-size: 14px; margin-top: 15px; color: #555555;">
-          查看更多: <a href="http://ypjgold.cn/show" style="color: #1a73e8; text-decoration: underline;">金价实时查询</a>
+         <p style="font-size: 14px; margin-top: 15px; color: #555555;">
+          查看更多:
+        </p>
+        <p style="font-size: 14px; margin-top: 5px; color: #555555;">
+          <a href="http://ypjgold.cn/show" style="color: #1a73e8; text-decoration: underline; display: block; margin-bottom: 8px;">金价实时查询</a>
+          <a href="http://47.115.210.76/" style="color: #1a73e8; text-decoration: underline; display: block;">当前报价</a>
         </p>
       </div>
     `,
