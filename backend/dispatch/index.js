@@ -6,9 +6,12 @@ export function dispatchNotify(params) {
   // Only send notifications between 9 AM and 9 PM
   const { typeText, realTimeValue, beforeValue, currentValue, updateTime } =
     params;
-  const beijingDate = dayjs().utcOffset(8);
-  const updateHour = beijingDate.get('hour');
-  if (updateHour < 9 || updateHour >= 21) {
+  const now = new Date();
+  // 转换为北京时区 (UTC+8)
+  const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
+  const beijingTime = new Date(utcTime + 3600000 * 8);
+  const beijingHour = beijingTime.getHours();
+  if (beijingHour < 9 || beijingHour >= 21) {
     console.log('Notification not sent due to time restrictions.', {
       typeText,
       realTimeValue,
@@ -61,9 +64,12 @@ export function dispatchNotify(params) {
 export function dispatchCurrentPriceNotify(params) {
   // Only send notifications between 9 AM and 9 PM
   const { sellPrice, buyBackPrice, updateTime } = params;
-  const beijingDate = dayjs().utcOffset(8);
-  const updateHour = beijingDate.get('hour');
-  if (updateHour < 9 || updateHour >= 21) {
+  const now = new Date();
+  // 转换为北京时区 (UTC+8)
+  const utcTime = now.getTime() + now.getTimezoneOffset() * 60000;
+  const beijingTime = new Date(utcTime + 3600000 * 8);
+  const beijingHour = beijingTime.getHours();
+  if (beijingHour < 9 || beijingHour >= 21) {
     console.log('Notification not sent due to time restrictions.', {
       sellPrice,
       buyBackPrice,
