@@ -291,10 +291,41 @@ function saveScheduledGoldPrice(priceData) {
       ],
       function (err) {
         if (err) {
-          reject(err);
-        } else {
-          resolve({ id: this.lastID, ...priceData });
+          console.error('插入数据失败:', err);
+          return reject(err);
         }
+        // 插入成功后立即 resolve
+        resolve({ id: this.lastID, ...priceData });
+
+        // 异步检查并清理过期数据
+        db.get(`SELECT COUNT(*) as count FROM scheduled_gold_prices`, [], (err, row) => {
+          if (err) {
+            console.error('查询总数失败:', err);
+            // 不需要 reject，因为已经 resolve 了
+            return;
+          }
+
+          const total = row.count;
+
+          if (total > 5000) {
+            console.log(`数据超出5000条，当前总共${total}条，执行清空到3000条操作`);
+            // id 倒序 保留最新值
+            db.run(
+              `DELETE FROM scheduled_gold_prices
+               WHERE id NOT IN (
+                 SELECT id FROM scheduled_gold_prices
+                 ORDER BY id DESC
+                 LIMIT 3000
+               )`,
+              (err) => {
+                if (err) {
+                  console.error("删除旧数据失败:", err);
+                  // 同样，这里不需要处理错误，因为 promise 已经 resolve
+                }
+              }
+            );
+          }
+        });
       }
     );
   });
@@ -316,6 +347,33 @@ function getScheduledGoldPriceHistory(limit = 100) {
     );
   });
 }
+
+
+function insertDummyData(db, count) {
+  return new Promise((resolve, reject) => {
+    let inserted = 0;
+    function insertNext() {
+      if (inserted >= count) return resolve();
+
+      const priceData = {
+        sellPrice: Math.random() * 100,
+        recyclePrice: Math.random() * 80,
+        rawSellPrice: Math.random() * 90,
+        rawRecyclePrice: Math.random() * 70,
+        prevSellPrice: Math.random() * 60,
+        prevRecyclePrice: Math.random() * 50,
+        changeTime: new Date().toISOString(),
+      };
+      saveScheduledGoldPrice(priceData).then(() => {
+        inserted++;
+        insertNext();
+      }).catch(reject);
+    }
+
+    insertNext();
+  });
+}
+
 
 export { 
   db, 
