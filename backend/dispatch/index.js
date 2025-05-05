@@ -51,7 +51,7 @@ export function dispatchNotify(params) {
         </p>
       </div>
     `,
-    sptList: [ZH_SPT, BCJ_SPT, MQY_SPT],
+    sptList: [ZH_SPT, BCJ_SPT],
     // sptList: [ZH_SPT],
     contentType: '2',
     summary: `${typeText}${beforeValue}=>${currentValue}，实时${realTimeValue}`,
