@@ -180,7 +180,7 @@ onUnmounted(() => {
       <header class="logo-section">
         <div class="logo-container" @click="handleLogoClick">
           <img
-            src="./assets/WechatIMG2.jpg"
+            src="./assets/WechatIMG2.png"
             alt="恒上金店 Logo"
             class="company-logo"
           />
