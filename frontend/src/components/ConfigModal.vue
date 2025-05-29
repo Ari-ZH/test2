@@ -28,6 +28,10 @@ const configForm = ref({
   platinumSellPrice: props.configData?.platinumSellPrice || 0,
   porpeziteRecyclePrice: props.configData?.porpeziteRecyclePrice || 0,
   porpeziteSellPrice: props.configData?.porpeziteSellPrice || 0,
+  silverBarRecyclePrice: props.configData?.silverBarRecyclePrice || 0,
+  silverBarSellPrice: props.configData?.silverBarSellPrice || 0,
+  platinumBarRecyclePrice: props.configData?.platinumBarRecyclePrice || 0,
+  platinumBarSellPrice: props.configData?.platinumBarSellPrice || 0,
 });
 
 // 初始化表单数据
@@ -45,6 +49,10 @@ watch(
         platinumSellPrice: newConfigData.platinumSellPrice,
         porpeziteRecyclePrice: newConfigData.porpeziteRecyclePrice,
         porpeziteSellPrice: newConfigData.porpeziteSellPrice,
+        silverBarRecyclePrice: newConfigData.silverBarRecyclePrice || 0,
+        silverBarSellPrice: newConfigData.silverBarSellPrice || 0,
+        platinumBarRecyclePrice: newConfigData.platinumBarRecyclePrice || 0,
+        platinumBarSellPrice: newConfigData.platinumBarSellPrice || 0,
       };
     }
   },
@@ -75,6 +83,10 @@ function submitConfigForm() {
     platinumSellPrice: parseFloat(configForm.value.platinumSellPrice),
     porpeziteRecyclePrice: parseFloat(configForm.value.porpeziteRecyclePrice),
     porpeziteSellPrice: parseFloat(configForm.value.porpeziteSellPrice),
+    silverBarRecyclePrice: parseFloat(configForm.value.silverBarRecyclePrice),
+    silverBarSellPrice: parseFloat(configForm.value.silverBarSellPrice),
+    platinumBarRecyclePrice: parseFloat(configForm.value.platinumBarRecyclePrice),
+    platinumBarSellPrice: parseFloat(configForm.value.platinumBarSellPrice),
     updateTime: dayjs().format('YYYY-MM-DD HH:mm:ss'),
     key: configForm.value.key,
   };
@@ -126,103 +138,185 @@ function closeModal() {
       <div class="config-modal-body">
         <div v-if="formError" class="form-error">{{ formError }}</div>
 
-        <div class="form-group">
-          <label for="configKey">验证密钥</label>
-          <input
-            id="configKey"
-            type="password"
-            v-model="configForm.key"
-            placeholder="请输入验证密钥"
-            required
-          />
+        <!-- 验证密钥 -->
+        <div class="section">
+          <div class="form-group full-width">
+            <label for="configKey">验证密钥</label>
+            <input
+              id="configKey"
+              type="password"
+              v-model="configForm.key"
+              placeholder="请输入验证密钥"
+              required
+            />
+          </div>
         </div>
 
-        <div class="form-group">
-          <label for="minUp">最小上调幅度</label>
-          <input
-            id="minUp"
-            type="number"
-            v-model="configForm.minUp"
-            step="0.1"
-            required
-          />
+        <!-- 黄金价格配置 -->
+        <div class="section">
+          <h4 class="section-title">黄金价格配置</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="minUp">最小上调幅度</label>
+              <input
+                id="minUp"
+                type="number"
+                v-model="configForm.minUp"
+                step="0.1"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="minDown">最小下调幅度</label>
+              <input
+                id="minDown"
+                type="number"
+                v-model="configForm.minDown"
+                step="0.1"
+                required
+              />
+            </div>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label for="minDown">最小下调幅度</label>
-          <input
-            id="minDown"
-            type="number"
-            v-model="configForm.minDown"
-            step="0.1"
-            required
-          />
-        </div>
+        <!-- 金属价格配置 -->
+        <div class="section">
+          <h4 class="section-title">金属价格配置</h4>
+          
+          <!-- 白银 -->
+          <div class="metal-group">
+            <h5 class="metal-title">白银</h5>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="silverRecyclePrice">回收价格</label>
+                <input
+                  id="silverRecyclePrice"
+                  type="number"
+                  v-model="configForm.silverRecyclePrice"
+                  step="0.01"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="silverSellPrice">卖出价格</label>
+                <input
+                  id="silverSellPrice"
+                  type="number"
+                  v-model="configForm.silverSellPrice"
+                  step="0.01"
+                  required
+                />
+              </div>
+            </div>
+          </div>
 
-        <div class="form-group">
-          <label for="silverRecyclePrice">白银回收价格</label>
-          <input
-            id="silverRecyclePrice"
-            type="number"
-            v-model="configForm.silverRecyclePrice"
-            step="0.01"
-            required
-          />
-        </div>
+          <!-- 铂金 -->
+          <div class="metal-group">
+            <h5 class="metal-title">铂金</h5>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="platinumRecyclePrice">回收价格</label>
+                <input
+                  id="platinumRecyclePrice"
+                  type="number"
+                  v-model="configForm.platinumRecyclePrice"
+                  step="0.01"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="platinumSellPrice">卖出价格</label>
+                <input
+                  id="platinumSellPrice"
+                  type="number"
+                  v-model="configForm.platinumSellPrice"
+                  step="0.01"
+                  required
+                />
+              </div>
+            </div>
+          </div>
 
-        <div class="form-group">
-          <label for="silverSellPrice">白银卖出价格</label>
-          <input
-            id="silverSellPrice"
-            type="number"
-            v-model="configForm.silverSellPrice"
-            step="0.01"
-            required
-          />
-        </div>
+          <!-- 钯金 -->
+          <div class="metal-group">
+            <h5 class="metal-title">钯金</h5>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="porpeziteRecyclePrice">回收价格</label>
+                <input
+                  id="porpeziteRecyclePrice"
+                  type="number"
+                  v-model="configForm.porpeziteRecyclePrice"
+                  step="0.01"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="porpeziteSellPrice">卖出价格</label>
+                <input
+                  id="porpeziteSellPrice"
+                  type="number"
+                  v-model="configForm.porpeziteSellPrice"
+                  step="0.01"
+                  required
+                />
+              </div>
+            </div>
+          </div>
 
-        <div class="form-group">
-          <label for="platinumRecyclePrice">铂金回收价格</label>
-          <input
-            id="platinumRecyclePrice"
-            type="number"
-            v-model="configForm.platinumRecyclePrice"
-            step="0.01"
-            required
-          />
-        </div>
+          <!-- 白银银条 -->
+          <div class="metal-group">
+            <h5 class="metal-title">白银银条</h5>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="silverBarRecyclePrice">回收价格</label>
+                <input
+                  id="silverBarRecyclePrice"
+                  type="number"
+                  v-model="configForm.silverBarRecyclePrice"
+                  step="0.01"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="silverBarSellPrice">卖出价格</label>
+                <input
+                  id="silverBarSellPrice"
+                  type="number"
+                  v-model="configForm.silverBarSellPrice"
+                  step="0.01"
+                  required
+                />
+              </div>
+            </div>
+          </div>
 
-        <div class="form-group">
-          <label for="platinumSellPrice">铂金卖出价格</label>
-          <input
-            id="platinumSellPrice"
-            type="number"
-            v-model="configForm.platinumSellPrice"
-            step="0.01"
-            required
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="porpeziteRecyclePrice">钯金回收价格</label>
-          <input
-            id="porpeziteRecyclePrice"
-            type="number"
-            v-model="configForm.porpeziteRecyclePrice"
-            step="0.01"
-            required
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="porpeziteSellPrice">钯金卖出价格</label>
-          <input
-            id="porpeziteSellPrice"
-            type="number"
-            v-model="configForm.porpeziteSellPrice"
-            step="0.01"
-            required
-          />
+          <!-- 铂金金条 -->
+          <div class="metal-group">
+            <h5 class="metal-title">铂金金条</h5>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="platinumBarRecyclePrice">回收价格</label>
+                <input
+                  id="platinumBarRecyclePrice"
+                  type="number"
+                  v-model="configForm.platinumBarRecyclePrice"
+                  step="0.01"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="platinumBarSellPrice">卖出价格</label>
+                <input
+                  id="platinumBarSellPrice"
+                  type="number"
+                  v-model="configForm.platinumBarSellPrice"
+                  step="0.01"
+                  required
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="config-modal-footer">
@@ -255,24 +349,28 @@ function closeModal() {
 
 .config-modal {
   background-color: white;
-  padding: 16px;
+  padding: 8px;
   border-radius: 8px;
-  width: 90%;
-  max-width: 500px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  max-height: 100vh;
-  overflow: scroll;
+  width: 95%;
+  max-width: 600px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  max-height: 95vh;
+  overflow-y: auto;
 }
 
 .config-modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #e0e0e0;
 }
 
 .config-modal-header h3 {
   margin: 0;
+  color: #333;
+  font-size: 1.1rem;
 }
 
 .close-button {
@@ -280,61 +378,158 @@ function closeModal() {
   border: none;
   font-size: 1.5rem;
   cursor: pointer;
+  color: #666;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.close-button:hover {
+  background-color: #f5f5f5;
 }
 
 .config-modal-body {
-  margin-bottom: 20px;
+  margin-bottom: 12px;
+}
+
+/* 分组样式 */
+.section {
+  margin-bottom: 10px;
+}
+
+.section-title {
+  margin: 0 0 8px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2c3e50;
+  padding-bottom: 4px;
+  border-bottom: 2px solid #3498db;
+}
+
+.metal-group {
+  margin-bottom: 8px;
+  padding: 8px;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  border-left: 3px solid #3498db;
+}
+
+.metal-title {
+  margin: 0 0 6px 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #34495e;
+}
+
+/* 表单行布局 */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
 }
 
 .form-group {
-  margin-bottom: 15px;
+  margin-bottom: 0;
+}
+
+.form-group.full-width {
+  margin-bottom: 8px;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
+  margin-bottom: 3px;
+  font-weight: 500;
+  color: #555;
+  font-size: 0.8rem;
 }
 
 .form-group input {
   width: 100%;
-  padding: 8px;
-  border: 1px solid #ccc;
+  padding: 6px 8px;
+  border: 1px solid #ddd;
   border-radius: 4px;
+  font-size: 0.85rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
 }
 
 .config-modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e0e0e0;
 }
 
 .submit-button,
 .cancel-button {
-  padding: 10px 20px;
+  padding: 8px 16px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  font-weight: 500;
+  font-size: 0.85rem;
+  transition: background-color 0.2s, transform 0.1s;
 }
 
 .submit-button {
-  background-color: #4caf50;
+  background-color: #27ae60;
   color: white;
+}
+
+.submit-button:hover:not(:disabled) {
+  background-color: #229954;
+  transform: translateY(-1px);
 }
 
 .cancel-button {
-  background-color: #f44336;
+  background-color: #95a5a6;
   color: white;
 }
 
+.cancel-button:hover {
+  background-color: #7f8c8d;
+  transform: translateY(-1px);
+}
+
 .submit-button:disabled {
-  background-color: #9e9e9e;
+  background-color: #bdc3c7;
   cursor: not-allowed;
+  transform: none;
 }
 
 .form-error {
-  color: #f44336;
-  margin-bottom: 15px;
-  font-size: 0.9rem;
+  color: #e74c3c;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+  padding: 6px 8px;
+  background-color: #fdf2f2;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .config-modal {
+    width: 95%;
+    max-width: none;
+    max-height: 95vh;
+    padding: 6px 8px;
+  }
+  
+  .form-row {
+    gap: 6px;
+  }
+  
+  .metal-group {
+    padding: 6px;
+  }
 }
 </style>

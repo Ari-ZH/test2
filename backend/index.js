@@ -295,6 +295,10 @@ app.post('/api/config', express.json(), async (req, res) => {
       platinumSellPrice,
       porpeziteRecyclePrice,
       porpeziteSellPrice,
+      silverBarRecyclePrice,
+      silverBarSellPrice,
+      platinumBarRecyclePrice,
+      platinumBarSellPrice,
       updateTime,
       key,
     } = req.body;
@@ -314,6 +318,10 @@ app.post('/api/config', express.json(), async (req, res) => {
       platinumSellPrice: parseFloat(platinumSellPrice),
       porpeziteRecyclePrice: parseFloat(porpeziteRecyclePrice),
       porpeziteSellPrice: parseFloat(porpeziteSellPrice),
+      silverBarRecyclePrice: parseFloat(silverBarRecyclePrice),
+      silverBarSellPrice: parseFloat(silverBarSellPrice),
+      platinumBarRecyclePrice: parseFloat(platinumBarRecyclePrice),
+      platinumBarSellPrice: parseFloat(platinumBarSellPrice),
       updateTime,
     });
 
@@ -357,6 +365,18 @@ app.get('/api/latest-price', async (req, res) => {
           type: '钯金',
           recyclePrice: config.porpeziteRecyclePrice,
           sellPrice: config.porpeziteSellPrice,
+          updateTime: latestPrice.changeTime,
+        },
+        {
+          type: '白银银条',
+          recyclePrice: config.silverBarRecyclePrice,
+          sellPrice: config.silverBarSellPrice,
+          updateTime: latestPrice.changeTime,
+        },
+        {
+          type: '铂金金条',
+          recyclePrice: config.platinumBarRecyclePrice,
+          sellPrice: config.platinumBarSellPrice,
           updateTime: latestPrice.changeTime,
         },
       ];
